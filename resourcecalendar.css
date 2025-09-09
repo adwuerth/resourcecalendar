@@ -1,3 +1,29 @@
+table {
+    width: 100%;
+    text-align: center;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+thead th:not(:first-child) {
+    border-top: 1px rgba(0, 0, 0, 0.3) solid;
+}
+
+table th {
+    border-bottom: 1px rgba(0, 0, 0, 0.3) solid;
+    border-right: 1px rgba(0, 0, 0, 0.3) solid;
+}
+
+table td {
+    border-bottom: 1px rgba(0, 0, 0, 0.3) solid;
+    border-right: 1px rgba(0, 0, 0, 0.3) solid;
+}
+
+table thead th {
+    position: sticky;
+    top: 0;
+}
+
 td {
     min-height: 15px;
     vertical-align: top !important;

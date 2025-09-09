@@ -424,6 +424,22 @@ class DayView extends ViewMode {
 }
 
 
+const Striping = Object.freeze({
+    NONE: Symbol("none"),
+    COLUMNS: Symbol("columns"),
+    ROWS: Symbol("rows"),
+
+    from(str) {
+        return Object.values(this).find(symbol =>
+            typeof symbol === 'symbol' && symbol.description === str
+        ) ?? this.DEFAULT;
+    },
+
+    get DEFAULT() {
+        return this.NONE;
+    },
+});
+
 class ResourceCalendar {
     static DEFAULT_OPTIONS = {
         // calendar settings
@@ -433,7 +449,7 @@ class ResourceCalendar {
         nowIndicator: true,
         selectable: true, // todo
         editable: true, // todo
-        striping: 'none', // none, columns, rows
+        striping: Striping.DEFAULT,
 
         eventDrop: null,
         eventClick: null,
@@ -457,9 +473,7 @@ class ResourceCalendar {
             end: 'dateSelect prev next'
         },
 
-        customButtons: {
-
-        },
+        customButtons: {},
 
         // customOptions are options that are not used by the resource calendar and just are stored for calendar extensions
         customOptions: {}
@@ -692,23 +706,21 @@ class ResourceCalendar {
      * @return {jQuery}
      */
     createTable() {
-        const $tableHeader = $('<table>')
-            .addClass('table table-responsive table-hover mb-0')
-            .css('table-layout', 'fixed')
-            .append(this.createHeader());
-
         const $table = $('<table>')
             .addClass('table table-responsive table-hover')
-            .css('table-layout', 'fixed')
+            .css({
+                tableLayout: 'fixed',
+            })
+            .append(this.createHeader())
             .append(this.createBody());
 
-        if (this.options.striping === 'rows') {
+        if (this.options.striping === Striping.ROWS) {
             $table.addClass('table-striped');
         }
 
         const $tableContainer = $('<div>').addClass('overflow-y-scroll overflow-x-hidden').css('height', '85vh').append($table);
 
-        const $col = $('<div>').addClass('col').append($tableHeader, $tableContainer);
+        const $col = $('<div>').addClass('col').append($tableContainer);
 
         return $('<div>').addClass('row').append($col);
     }
@@ -765,8 +777,12 @@ class ResourceCalendar {
         const $viewmodeBtnDiv = $(`<div>`);
         const viewModes = ViewMode.modes();
         for (const viewmode in viewModes) {
+
+            // todo: make this language independent, for now only on english
+            const viewmodeTitle = String(viewmode).charAt(0).toUpperCase() + String(viewmode).slice(1);
+
             const $viewmodeBtn = $(`
-                <button class="btn btn-dark"><i class="${viewModes[viewmode].buttonIconClass}"></i></button>
+                <button title="${viewmodeTitle}" class="btn btn-dark"><i class="${viewModes[viewmode].buttonIconClass}"></i></button>
             `).on('click', () => {
                 this.setViewMode(viewmode);
                 this.updateDates();
@@ -825,7 +841,11 @@ class ResourceCalendar {
      * @private
      */
     createHeader() {
-        const $thead = $('<thead>');
+        const $thead = $('<thead>').css({
+            position: 'sticky',
+            top: '0px',
+            zIndex: 1000,
+        });
         const $headerRow = $('<tr>');
 
         // First empty header cell (top-left corner)
@@ -834,7 +854,8 @@ class ResourceCalendar {
             .attr('colspan', this.subdivision)
             .css({
                 width: '15vw',
-                borderRight: '1px rgba(0, 0, 0, 0.3) solid'
+                position: 'sticky',
+                top: '0px',
             }));
 
         const today = new Date();
@@ -848,11 +869,12 @@ class ResourceCalendar {
                 .attr('scope', 'col')
                 .attr('colspan', this.subdivision)
                 .css({
-                    borderRight: '1px rgba(0, 0, 0, 0.3) solid'
+                    position: 'sticky',
+                    top: '0px',
                 })
                 .text(formattedDate);
 
-            if (this.options.striping === 'columns' && index % 2 === 0) {
+            if (this.options.striping === Striping.COLUMNS && index % 2 === 0) {
                 $dateTh.css('box-shadow', 'inset 0 0 0 9999px rgba(var(--bs-emphasis-color-rgb), 0.05)');
             }
 
@@ -886,7 +908,6 @@ class ResourceCalendar {
                 .attr('colspan', this.subdivision)
                 .css({
                     width: '15vw',
-                    borderRight: '1px rgba(0, 0, 0, 0.3) solid'
                 })
                 .html(`${resource} (${resourceId})`);
             $resourceRow.append($resourceTh);
@@ -896,7 +917,7 @@ class ResourceCalendar {
                     if (this.todayIndex && i === this.todayIndex) {
                         $resourceTd.addClass('bg-warning-subtle');
                     }
-                    if (this.options.striping === 'columns' && i % 2 === 0) {
+                    if (this.options.striping === Striping.COLUMNS && i % 2 === 0) {
                         $resourceTd.css('box-shadow', 'inset 0 0 0 9999px rgba(var(--bs-emphasis-color-rgb), 0.05)');
                     }
                     let borderStyle = j + 1 < this.subdivision ? 'dashed' : 'solid'
