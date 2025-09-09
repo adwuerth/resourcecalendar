@@ -1,34 +1,3 @@
-const CONTAINER_ID = 'container-resourcecalendar';
-
-$(function () {
-    $('html').css('overflow', 'hidden');
-
-    let options = {
-        minTime: unprocessedOptions.minTime ?? '00:00',
-        maxTime: unprocessedOptions.maxTime ?? '24:00',
-        editable: unprocessedOptions.editable ?? false,
-        selectable: unprocessedOptions.selectable ?? false,
-        weekends: unprocessedOptions.weekends ?? false,
-        nowIndicator: unprocessedOptions.nowIndicator ?? false,
-        subdivision: {
-            week: unprocessedOptions.subdivision_week ?? 1,
-            month: unprocessedOptions.subdivision_month ?? 1,
-            day: unprocessedOptions.subdivision_day ?? 1,
-        },
-        striping: unprocessedOptions.striping ?? 'none',
-        customOptions: {
-            customFormId: unprocessedOptions.customOptions?.customFormId ?? undefined,
-            customFormDimension: unprocessedOptions.customOptions?.customFormDimension ?? undefined,
-            alertText: 'Do you want to create a new event?'
-        }
-    }
-
-    options = {...unprocessedOptions, ...options};
-
-    const myCalendar = new ResourceCalendar(options);
-    myCalendar.render();
-});
-
 /**
  * General Utility functions for calendar
  * note: put this into a module in the future
@@ -482,8 +451,38 @@ class ResourceCalendar {
             'day': 1,
         },
 
+        toolbar: {
+            start: 'viewMode',
+            center: 'dateDisplay',
+            end: 'dateSelect prev next'
+        },
+
+        customButtons: {
+
+        },
+
         // customOptions are options that are not used by the resource calendar and just are stored for calendar extensions
         customOptions: {}
+    }
+
+    standardButtons = {
+        viewMode: {
+            creationFunction: this.createViewModeButtons.bind(this)
+        },
+        dateDisplay: {
+            creationFunction: this.createDateDisplay.bind(this)
+        },
+        dateSelect: {
+            creationFunction: this.createDateSelect.bind(this)
+        },
+        prev: {
+            icon: 'lmb-icon lmb-caret-left',
+            onClick: this.getPrev.bind(this),
+        },
+        next: {
+            icon: 'lmb-icon lmb-caret-right',
+            onClick: this.getNext.bind(this),
+        }
     }
 
     /**
@@ -507,6 +506,14 @@ class ResourceCalendar {
         this.selectedDate = new Date(this.options.initialDate);
         this.tabId = this.options.tabId;
 
+        this.fetchResourcesFunction = this.options.fetchResourcesFunction;
+        this.fetchEventDataFunction = this.options.fetchEventDataFunction;
+        this.saveEventFunction = this.options.saveEventFunction;
+        this.deleteEventFunction = this.options.deleteEventFunction;
+        this.dateClick = this.options.dateClick;
+        this.eventClick = this.options.eventClick;
+        this.buttons = {...this.standardButtons, ...this.options.customButtons};
+
         this.updateCalendarData();
 
         // re-render calendar on window resize
@@ -524,18 +531,18 @@ class ResourceCalendar {
         this.rows = new Map();
     }
 
-    rerender(gsObject = null) {
-        this.updateCalendarData(gsObject);
+    rerender() {
+        this.updateCalendarData();
         this.render();
     }
 
-    updateCalendarData(gsObject = null) {
-        this.updateResources(gsObject);
+    updateCalendarData() {
+        this.updateResources();
         this.updateDates();
     }
 
-    updateResources(gsObject = null) {
-        this.resources = new Map(Object.entries(this.fetchResources(gsObject)));
+    updateResources() {
+        this.resources = new Map(Object.entries(this.fetchResources()));
     }
 
     verifyResource(resourceId) {
@@ -577,70 +584,12 @@ class ResourceCalendar {
      * If passed, set gs variable to use search functionality/pass search parameters to server
      * @return {any}
      */
-    fetchResources(gsObject = null) {
-        let resources = {};
-
-        let inputData = {
-            action: 'get_resources',
-            actid: 'manageResourceCalendar',
-            tab_id: this.tabId
-        };
-
-        if (gsObject !== null) {
-            inputData = {...inputData, ...gsObject, gssearch: true, gtabid: this.tabId};
-        }
-
-        $.ajax({
-            url: 'main_dyns.php',
-            type: 'POST',
-            data: inputData,
-            dataType: 'json',
-            async: false, // Make the request synchronous
-            success: (data) => {
-                if (data.success) {
-                    resources = data.resources ?? [];
-                } else {
-                    console.error('Failed to fetch initial data');
-                }
-            },
-            error: (error) => {
-                console.error('Error fetching initial data:', error);
-            }
-        });
-
-        return resources;
+    fetchResources() {
+        return this.fetchResourcesFunction(this);
     }
 
     fetchEventData() {
-        let eventData;
-
-        let inputData = {
-            action: 'get_events',
-            actid: 'manageResourceCalendar',
-            tab_id: this.tabId,
-            start_date: LimbasUtils.dateToLocalISOString(this.startDate),
-            end_date: LimbasUtils.dateToLocalISOString(this.endDate),
-        };
-
-        $.ajax({
-            url: 'main_dyns.php',
-            type: 'POST',
-            data: inputData,
-            dataType: 'json',
-            async: false, // Make the request synchronous
-            success: (data) => {
-                if (data.success) {
-                    eventData = data.events;
-                } else {
-                    console.error('Failed to fetch event data:', data.message);
-                }
-            },
-            error: (error) => {
-                console.error('Error fetching event data:', error);
-            }
-        });
-
-        return eventData;
+        return this.fetchEventDataFunction(this);
     }
 
     /**
@@ -682,7 +631,7 @@ class ResourceCalendar {
 
         const calendar = this;
 
-        this.$calendar = $(`<div></div>`);
+        this.$calendar = $(`<div>`);
 
         const $toolbar = this.createToolbar();
         this.$calendar.append($toolbar);
@@ -707,7 +656,9 @@ class ResourceCalendar {
                 e
             );
 
-            LimbasUtils.showEventUpdateModal(event);
+            if (typeof calendar.dateClick === "function") {
+                calendar.dateClick(event);
+            }
         })
 
         $dropzones.on('dragenter', function (e) {
@@ -770,38 +721,53 @@ class ResourceCalendar {
     createToolbar() {
         const $toolbarRow = $(`
             <div class="row mb-2">
-                <div id="rc-toolbar" class="col d-flex justify-content-between">
+                <div class="col d-flex justify-content-between">
                     
                 </div>
             </div>
         `);
 
-        const $toolbar = $toolbarRow.find('#rc-toolbar');
+        const $toolbar = $toolbarRow.children().first();
 
-        $toolbar.append(this.toolbarStart());
-        $toolbar.append(this.toolbarMiddle());
-        $toolbar.append(this.toolbarEnd());
+        const toolbarConfig = this.options.toolbar;
+
+        for (const [key, value] of Object.entries(toolbarConfig)) {
+            const $toolbarPart = $(`<div class="d-flex">`);
+            let groups = value.split(' ');
+            groups = groups.map(word => word.split(','));
+            for (const group of groups) {
+                let $group;
+                if (group.length > 1) {
+                    const $buttonGroup = $(`<div>`);
+                    for (const button of group) {
+                        $buttonGroup.append(this.createButton(this.buttons[button]));
+                    }
+                    $group = $buttonGroup;
+                } else if (group.length === 1) {
+                    $group = this.createButton(this.buttons[group[0]]);
+                } else {
+                    continue;
+                }
+                $toolbarPart.append($group);
+            }
+            if (key === 'start') {
+                $toolbarPart.children().addClass('me-1');
+            } else if (key === 'end') {
+                $toolbarPart.children().addClass('ms-1');
+            }
+            $toolbar.append($toolbarPart);
+        }
 
         return $toolbarRow;
     }
 
-    toolbarStart() {
-        const $addButton = $(`
-            <button class="btn btn-dark me-1"><i class="fa-solid fa-plus-circle"></i></button>
-        `);
-        $addButton.on('click', () => LimbasUtils.showEventCreationModal(this));
-
-        const $searchButton = $(`<button id="rc-btn-search" class="btn btn-dark d-flex justify-content-center align-items-center me-1"><i class="fa-solid fa-magnifying-glass"></i></button>`);
-        $searchButton.on('click', () => LimbasUtils.showSearchModal(this.tabId));
-
-        // viewmode buttons
-        const $viewmodeBtnDiv = $(`<div class="col-auto"></div>`);
+    createViewModeButtons() {
+        const $viewmodeBtnDiv = $(`<div>`);
         const viewModes = ViewMode.modes();
         for (const viewmode in viewModes) {
             const $viewmodeBtn = $(`
-                <button id="rc-btn-${viewmode}" class="btn btn-dark"><i class="${viewModes[viewmode].buttonIconClass}"></i></button>
-            `);
-            $viewmodeBtn.on('click', () => {
+                <button class="btn btn-dark"><i class="${viewModes[viewmode].buttonIconClass}"></i></button>
+            `).on('click', () => {
                 this.setViewMode(viewmode);
                 this.updateDates();
                 this.render();
@@ -811,47 +777,46 @@ class ResourceCalendar {
             }
             $viewmodeBtnDiv.append($viewmodeBtn);
         }
-        $viewmodeBtnDiv.find(`#rc-btn-${this.viewmode.name}`).addClass('active');
-
-        const $toolbarPart = $(`<div class="d-flex">`)
-        $toolbarPart.append($addButton);
-        $toolbarPart.append($searchButton);
-        $toolbarPart.append($viewmodeBtnDiv);
-        return $toolbarPart;
+        return $viewmodeBtnDiv;
     }
 
-    toolbarMiddle() {
+    createDateDisplay() {
         const headerText = this.viewmode.header(this.selectedDate);
-        const $headerText = $(`<span class="fw-bold fs-5">${headerText}</span>`);
-
-        const $toolbarPart = $(`<div class="d-flex justify-content-center align-items-center">`)
-        $toolbarPart.append($headerText);
-        return $toolbarPart;
+        return $(`<span class="fw-bold fs-5">${headerText}</span>`);
     }
 
-    toolbarEnd() {
-        // date select field
-        const $daySelector = $(`
+    createButton(button) {
+        if (typeof button.creationFunction === "function") {
+            return button.creationFunction();
+        }
+
+        const $button = $(`
+            <button class="btn btn-dark">
+        `).on('click', (event) => button.onClick(event));
+
+        if (button.icon) {
+            if (button.text) {
+                $button.prop('title', button.text);
+            }
+            $button.append($(`<i class="${button.icon}"></i>`));
+        } else if (button.text) {
+            $button.text(button.text);
+        }
+
+        return $button;
+    }
+
+    createDateSelect() {
+        return $(`
             <input 
                     class="form-control me-1"
                     type="date"
                     value="${ResourceCalendarUtils.formatDateForInput(this.selectedDate)}">
-        `)
-        $daySelector.on('change', (event) => {
+        `).on('change', (event) => {
             const selectedDateString = event.target.value;
             const selectedDate = new Date(selectedDateString);
             this.selectDate(selectedDate);
         });
-
-        const $prevButton = $(`<button id="rc-btn-prev" class="btn btn-dark d-flex justify-content-center align-items-center me-1"><i class="lmb-icon lmb-caret-left"></i></button>`).on('click', () => this.getPrev());
-
-        const $nextButton = ($(`<button id="rc-btn-next" class="btn btn-dark d-flex justify-content-center align-items-center"><i class="lmb-icon lmb-caret-right"></i></button>`)).on('click', () => this.getNext());
-
-        const $toolbarPart = $(`<div class="d-flex">`)
-        $toolbarPart.append($daySelector);
-        $toolbarPart.append($prevButton);
-        $toolbarPart.append($nextButton);
-        return $toolbarPart;
     }
 
     /**
@@ -864,14 +829,13 @@ class ResourceCalendar {
         const $headerRow = $('<tr>');
 
         // First empty header cell (top-left corner)
-        const $emptyTh = $('<th>')
+        $headerRow.append($('<th>')
             .attr('scope', 'col')
             .attr('colspan', this.subdivision)
             .css({
                 width: '15vw',
                 borderRight: '1px rgba(0, 0, 0, 0.3) solid'
-            });
-        $headerRow.append($emptyTh);
+            }));
 
         const today = new Date();
         this.todayIndex = null;
@@ -897,10 +861,6 @@ class ResourceCalendar {
                     $dateTh.addClass('bg-warning');
                     this.todayIndex = index;
                 }
-            }
-
-            if (this.viewmode.equalsUnit(this.selectedDate, date)) {
-                // $dateTh.css('background-color', 'blue');
             }
 
             $headerRow.append($dateTh);
@@ -1126,7 +1086,10 @@ class ResourceCalendarEvent {
                 e.preventDefault();
                 return;
             }
-            LimbasUtils.showEventUpdateModal(this);
+
+            if (typeof this.calendar.eventClick === "function") {
+                this.calendar.eventClick(this);
+            }
         })
 
         let dragStartX;
@@ -1283,7 +1246,7 @@ class ResourceCalendarEvent {
         this.setStartTime(this.startDate.getTime() + timeOffset);
         this.setEndTime(this.endDate.getTime() + timeOffset);
         this.renderUpdate();
-        if(!sameRow) {
+        if (!sameRow) {
             ResourceCalendarEvent.updateRow($previousRow);
         }
         this.updateRow();
@@ -1532,88 +1495,11 @@ class ResourceCalendarEvent {
         this.$event.css('color', ResourceCalendarUtils.getContrastYIQ(this.color));
     }
 
-    save(onSuccess = null, saveDetails = false) {
-        let inputData = {
-            action: 'save',
-            start_date: LimbasUtils.dateToLocalISOString(this.startDate),
-            end_date: LimbasUtils.dateToLocalISOString(this.endDate),
-            resource_id: this.resourceId,
-            event_id: this.eventId,
-            tab_id: this.calendar.tabId,
-            title: this.title,
-            color: this.color,
-            all_day: this.allDay
-        }
-
-        if (saveDetails) {
-            inputData = {
-                ...inputData, ...{
-                    action: 'saveDetails',
-                }
-            };
-        }
-
-        LimbasUtils.postAction(inputData).then((data) => {
-            if (data.success) {
-                if (data.event_id) {
-                    this.eventId = data.event_id;
-                }
-                if (typeof onSuccess === 'function') {
-                    onSuccess();
-                }
-            } else {
-                lmbShowErrorMsg('Saving of event failed.');
-            }
-        }).catch(() => {
-            lmbShowErrorMsg('Saving of event failed.');
-        });
+    save() {
+        this.calendar.saveEventFunction(this);
     }
 
-    delete(onSuccess = null) {
-        LimbasUtils.postAction({
-            action: 'delete',
-            event_id: this.eventId,
-            tab_id: this.calendar.tabId,
-        }).then((data) => {
-            if (data.success) {
-                if (typeof onSuccess === 'function') {
-                    onSuccess();
-                }
-            } else {
-                lmbShowErrorMsg('Deleting of event failed.');
-            }
-        }).catch(() => {
-            lmbShowErrorMsg('Deleting of event failed.');
-        });
-    }
-}
-
-/*
- * Override functions for gtab search
- */
-
-function lmb_extsearchclear() {
-    const $filter_reset = $("[name='filter_reset']");
-    $filter_reset.val('1');
-    const calendar = $(`#${CONTAINER_ID}`).data('calendar');
-    calendar.rerender({});
-    $filter_reset.val('');
-    $('#searchFilterModal').modal('hide');
-}
-
-function LmGs_sendForm(reset) {
-    if (reset) {
-        lmb_extsearchclear();
-    } else {
-        let formData = new FormData(document.getElementById('form11'));
-        let searchData = {};
-        formData.forEach((value, key) => {
-            if (key.startsWith('gs[')) {
-                searchData[key] = value;
-            }
-        });
-        const calendar = $(`#${CONTAINER_ID}`).data('calendar');
-        calendar.rerender(searchData);
-        $('#searchFilterModal').modal('hide');
+    delete() {
+        this.calendar.deleteEventFunction(this);
     }
 }
