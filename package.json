@@ -1,0 +1,22 @@
+{
+  "name": "resourcecalendar",
+  "version": "1.0.0",
+  "description": "Resource Calendar",
+  "private": true,
+  "directories": {
+    "example": "examples"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "webpack"
+  },
+  "author": "Adrian Würth",
+  "license": "GPL-2.0-only",
+  "dependencies": {
+    "css-loader": "^7.1.2",
+    "jquery": "^3.7.1",
+    "style-loader": "^4.0.0",
+    "webpack": "^5.101.3",
+    "webpack-cli": "^6.0.1"
+  }
+}

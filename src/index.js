@@ -1,3 +1,6 @@
+import $ from "jquery";
+import './style.css';
+
 /**
  * General Utility functions for calendar
  * note: put this into a module in the future
@@ -503,7 +506,7 @@ class ResourceCalendar {
      * Creates an instance of ResourceCalendar
      * @param options This should be set when initializing a ResourceCalendar
      */
-    constructor(options) {
+    constructor(options = {}) {
         this.options = {...ResourceCalendar.DEFAULT_OPTIONS, ...options};
 
         this.container = $('#' + this.options.containerId);
@@ -734,7 +737,7 @@ class ResourceCalendar {
         const $toolbarRow = $(`
             <div class="row mb-2">
                 <div class="col d-flex justify-content-between">
-                    
+
                 </div>
             </div>
         `);
@@ -824,7 +827,7 @@ class ResourceCalendar {
 
     createDateSelect() {
         return $(`
-            <input 
+            <input
                     class="form-control me-1"
                     type="date"
                     value="${ResourceCalendarUtils.formatDateForInput(this.selectedDate)}">
@@ -1072,7 +1075,7 @@ class ResourceCalendarEvent {
         }
 
         const $event = $(`
-            <div 
+            <div
                 id="event-${this.eventId}"
                 draggable="true"
                 class="rc-event d-flex justify-content-center align-items-center">
