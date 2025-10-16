@@ -1,6 +1,20 @@
 import $ from "jquery";
 import './style.css';
 
+$(() => {
+    const options = {
+        fetchResourcesFunction: () => {
+            return {
+                1: 'abc',
+                2: 'abc2',
+                3: 'abc3'
+            }
+        }
+    }
+    const calendar = new ResourceCalendar(options);
+    calendar.render();
+})
+
 /**
  * General Utility functions for calendar
  * note: put this into a module in the future
@@ -456,7 +470,10 @@ class ResourceCalendar {
 
         eventDrop: null,
         eventClick: null,
-        dateClick: null,
+        dateClick: (event) => {event.render()},
+
+        saveEventFunction: null,
+        deleteEventFunction: null,
 
         // viewmode settings
         defaultViewMode: 'week',
@@ -476,6 +493,9 @@ class ResourceCalendar {
             end: 'dateSelect prev next'
         },
 
+        fetchResourcesFunction: () => {return {}},
+        fetchEventDataFunction: () => {return {}},
+
         customButtons: {},
 
         // customOptions are options that are not used by the resource calendar and just are stored for calendar extensions
@@ -493,11 +513,11 @@ class ResourceCalendar {
             creationFunction: this.createDateSelect.bind(this)
         },
         prev: {
-            icon: 'lmb-icon lmb-caret-left',
+            icon: 'fa-solid fa-chevron-left',
             onClick: this.getPrev.bind(this),
         },
         next: {
-            icon: 'lmb-icon lmb-caret-right',
+            icon: 'fa-solid fa-chevron-right',
             onClick: this.getNext.bind(this),
         }
     }
@@ -673,9 +693,7 @@ class ResourceCalendar {
                 e
             );
 
-            if (typeof calendar.dateClick === "function") {
-                calendar.dateClick(event);
-            }
+            calendar.dateClick?.(event);
         })
 
         $dropzones.on('dragenter', function (e) {
@@ -1111,9 +1129,7 @@ class ResourceCalendarEvent {
                 return;
             }
 
-            if (typeof this.calendar.eventClick === "function") {
-                this.calendar.eventClick(this);
-            }
+            this.calendar.eventClick?.(this);
         })
 
         let dragStartX;
@@ -1520,10 +1536,10 @@ class ResourceCalendarEvent {
     }
 
     save() {
-        this.calendar.saveEventFunction(this);
+        this.calendar.saveEventFunction?.(this);
     }
 
     delete() {
-        this.calendar.deleteEventFunction(this);
+        this.calendar.deleteEventFunction?.(this);
     }
 }
