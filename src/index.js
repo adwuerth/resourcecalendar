@@ -9,23 +9,34 @@ const ResourceCalendarUtils = {
   /**
    * Calculates the absolute time difference between two dates in milliseconds.
    * @returns {number}
-   * @param {Date} date1
-   * @param {Date} date2
+   * @param {Temporal.PlainDateTime} date1
+   * @param {Temporal.PlainDateTime} date2
    */
   calculateIntervalMilliseconds(date1, date2) {
-    return Math.abs(date1.getTime() - date2.getTime());
+    return Math.abs(
+      date1.since(date2).total({ unit: "milliseconds", relativeTo: date1 }),
+    );
   },
 
   /**
    * Calculates week number for a given date.
-   * @param d
+   * @param {Temporal.PlainDate} d
    * @return {number}
    */
   getWeekNumber(d) {
-    d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
-    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
-    return Math.ceil(((d - yearStart) / 86400000 + 1) / 7);
+    const thursday = d.add({ days: 4 - (d.dayOfWeek === 7 ? 7 : d.dayOfWeek) });
+    const yearStart = Temporal.PlainDate.from({
+      year: thursday.year,
+      month: 1,
+      day: 1,
+    });
+    return Math.ceil(
+      (thursday
+        .since(yearStart)
+        .total({ unit: "days", relativeTo: yearStart }) +
+        1) /
+        7,
+    );
   },
 
   /**
@@ -99,16 +110,12 @@ const ResourceCalendarUtils = {
   },
 
   /**
-   * convert Date object to string for type date input
-   * @param {Date} date
+   * convert Temporal.PlainDate object to string for type date input
+   * @param {Temporal.PlainDate} date
    * @return {string}
    */
   formatDateForInput(date) {
-    const year = date.getFullYear();
-    const month = (date.getMonth() + 1).toString().padStart(2, "0");
-    const day = date.getDate().toString().padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
+    return date.toPlainDate().toString();
   },
 };
 
@@ -148,7 +155,7 @@ class ViewMode {
 
   advanceBy(date, by) {}
 
-  getDates(date = new Date()) {}
+  getDates(date = Temporal.Now.plainDateISO()) {}
 
   getStartDate(date) {}
 
@@ -176,71 +183,68 @@ class WeekView extends ViewMode {
       day: "numeric",
     };
 
-    return new Intl.DateTimeFormat(this.locale, options).format(date);
+    return date.toLocaleString(this.locale, options);
   }
 
   /**
    * Advances the given date by a number of weeks.
-   * @param {Date} date
+   * @param {Temporal.PlainDateTime} date
    * @param {number} by
-   * @returns {Date}
+   * @returns {Temporal.PlainDateTime}
    */
   advanceBy(date, by) {
-    const newDate = new Date(date);
-    newDate.setDate(newDate.getDate() + by * 7);
-    return newDate;
+    return date.add({ weeks: by });
   }
 
   /**
-   * Gets an array of Date objects for the week containing the given date,
+   * Gets an array of Temporal.PlainDateTime objects for the week containing the given date,
    * starting from Monday and ending on Sunday.
-   * @param {Date} date
-   * @returns {Array<Date>}
+   * @param {Temporal.PlainDateTime} date
+   * @returns {Array<Temporal.PlainDateTime>}
    */
-  getDates(date = new Date()) {
+  getDates(date = Temporal.Now.plainDateISO()) {
     const monday = this.getStartDate(date);
 
     const weekDates = [];
     const dayCount = this.weekends ? 7 : 5;
 
     for (let i = 0; i < dayCount; i++) {
-      const newDate = new Date(monday);
-      newDate.setDate(monday.getDate() + i);
-      weekDates.push(newDate);
+      weekDates.push(monday.add({ days: i }));
     }
 
     return weekDates;
   }
 
   getStartDate(date) {
-    const currentDayOfWeek = date.getDay();
+    // Temporal.dayOfWeek: 1=Monday ... 7=Sunday
+    const daysToMonday = -(date.dayOfWeek - 1);
 
-    const daysToMonday = currentDayOfWeek === 0 ? -6 : -(currentDayOfWeek - 1);
-
-    const monday = new Date(date);
-    monday.setDate(date.getDate() + daysToMonday);
-    monday.setHours(0, 0, 0, 0);
-
-    return monday;
+    return date
+      .toPlainDate()
+      .add({ days: daysToMonday })
+      .toPlainDateTime(Temporal.PlainTime.from("00:00:00"));
   }
 
   getEndDate(date) {
-    const endDate = super.getEndDate(date);
+    let endDate = super.getEndDate(date);
     if (!this.weekends) {
-      endDate.setDate(endDate.getDate() - 2);
+      endDate = endDate.add({ days: -2 });
     }
     return endDate;
   }
 
   equalsUnit(date1, date2) {
-    if (!(date1 instanceof Date) || !(date2 instanceof Date)) {
+    if (
+      !(date1 instanceof Temporal.PlainDateTime) ||
+      !(date2 instanceof Temporal.PlainDateTime)
+    ) {
       return false;
     }
 
     return (
-      date1.getFullYear() === date2.getFullYear() &&
-      date1.getMonth() === date2.getMonth() &&
-      date1.getDate() === date2.getDate()
+      date1.year === date2.year &&
+      date1.month === date2.month &&
+      date1.day === date2.day
     );
   }
 
@@ -248,20 +252,18 @@ class WeekView extends ViewMode {
     const startDate = this.getStartDate(date);
     const endDate = this.getEndDate(date);
 
-    const formatterStart = new Intl.DateTimeFormat(this.locale, {
+    const startFormatted = startDate.toLocaleString(this.locale, {
       day: "2-digit",
       month: "2-digit",
     });
-
-    const formatterEnd = new Intl.DateTimeFormat(this.locale, {
+    const endFormatted = endDate.toLocaleString(this.locale, {
       day: "2-digit",
       month: "2-digit",
       year: "numeric",
     });
-
-    const startFormatted = formatterStart.format(startDate);
-    const endFormatted = formatterEnd.format(endDate);
-    const calendarWeek = ResourceCalendarUtils.getWeekNumber(date);
+    const calendarWeek = ResourceCalendarUtils.getWeekNumber(
+      date.toPlainDate(),
+    );
 
     return `KW ${calendarWeek}: ${startFormatted} - ${endFormatted}`;
   }
@@ -276,12 +278,10 @@ class MonthView extends ViewMode {
   }
 
   formatDate(date) {
-    const formatter = new Intl.DateTimeFormat(this.locale, {
+    let formattedDate = date.toLocaleString(this.locale, {
       weekday: "short",
       day: "2-digit",
     });
-
-    let formattedDate = formatter.format(date);
 
     formattedDate = formattedDate.replace(/,\s*/, " ");
     formattedDate = formattedDate.replace(/\.$/, "");
@@ -291,62 +291,63 @@ class MonthView extends ViewMode {
 
   /**
    * Advances the given date by a number of months.
-   * @param {Date} date
+   * @param {Temporal.PlainDateTime} date
    * @param {number} by
-   * @returns {Date}
+   * @returns {Temporal.PlainDateTime}
    */
   advanceBy(date, by) {
-    const newDate = new Date(date);
-    newDate.setMonth(newDate.getMonth() + by);
-    return newDate;
+    return date.add({ months: by });
   }
 
   /**
-   * Gets an array of Date objects for the month containing the given date
-   * @param {Date} date
-   * @returns {Array<Date>}
+   * Gets an array of Temporal.PlainDateTime objects for the month containing the given date
+   * @param {Temporal.PlainDateTime} date
+   * @returns {Array<Temporal.PlainDateTime>}
    */
-  getDates(date = new Date()) {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-
+  getDates(date = Temporal.Now.plainDateISO()) {
     const dates = [];
-    let day = 1;
+    let current = Temporal.PlainDate.from({
+      year: date.year,
+      month: date.month,
+      day: 1,
+    }).toPlainDateTime(Temporal.PlainTime.from("00:00:00"));
 
-    let newDate;
-    while ((newDate = new Date(year, month, day)).getMonth() === month) {
-      dates.push(newDate);
-      day++;
+    while (current.month === date.month) {
+      dates.push(current);
+      current = current.add({ days: 1 });
     }
 
     return dates;
   }
 
   getStartDate(date) {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const day = 1;
-
-    return new Date(year, month, day);
+    return Temporal.PlainDate.from({
+      year: date.year,
+      month: date.month,
+      day: 1,
+    }).toPlainDateTime(Temporal.PlainTime.from("00:00:00"));
   }
 
   equalsUnit(date1, date2) {
-    if (!(date1 instanceof Date) || !(date2 instanceof Date)) {
+    if (
+      !(date1 instanceof Temporal.PlainDateTime) ||
+      !(date2 instanceof Temporal.PlainDateTime)
+    ) {
       return false;
     }
 
     return (
-      date1.getFullYear() === date2.getFullYear() &&
-      date1.getMonth() === date2.getMonth() &&
-      date1.getDate() === date2.getDate()
+      date1.year === date2.year &&
+      date1.month === date2.month &&
+      date1.day === date2.day
     );
   }
 
   header(date) {
-    return new Intl.DateTimeFormat(this.locale, {
+    return date.toLocaleString(this.locale, {
       month: "long",
       year: "numeric",
-    }).format(date);
+    });
   }
 }
 
@@ -359,24 +360,20 @@ class DayView extends ViewMode {
   }
 
   formatDate(date) {
-    const formatter = new Intl.DateTimeFormat(this.locale, {
+    return date.toLocaleString(this.locale, {
       hour: "2-digit",
       minute: "2-digit",
     });
-
-    return formatter.format(date);
   }
 
   /**
    * Advances the given date by a number of days.
-   * @param {Date} date
+   * @param {Temporal.PlainDateTime} date
    * @param {number} by
-   * @returns {Date}
+   * @returns {Temporal.PlainDateTime}
    */
   advanceBy(date, by) {
-    const newDate = new Date(date);
-    newDate.setDate(newDate.getDate() + by);
-    return newDate;
+    return date.add({ days: by });
   }
 
   /**
@@ -385,42 +382,48 @@ class DayView extends ViewMode {
    * @param {Date} date
    * @returns {Array<Date>}
    */
-  getDates(date = new Date()) {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const day = date.getDate();
-
+  getDates(date = Temporal.Now.plainDateISO()) {
     const hours = [];
     for (let i = 0; i < 24; i++) {
-      const hourDate = new Date(year, month, day, i, 0, 0, 0);
-      hours.push(hourDate);
+      hours.push(
+        Temporal.PlainDate.from({
+          year: date.year,
+          month: date.month,
+          day: date.day,
+        }).toPlainDateTime(
+          Temporal.PlainTime.from({ hour: i, minute: 0, second: 0 }),
+        ),
+      );
     }
     return hours;
   }
 
   getStartDate(date) {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    const day = date.getDate();
-
-    return new Date(year, month, day, 0, 0, 0, 0);
+    return Temporal.PlainDate.from({
+      year: date.year,
+      month: date.month,
+      day: date.day,
+    }).toPlainDateTime(Temporal.PlainTime.from("00:00:00"));
   }
 
   equalsUnit(date1, date2) {
-    if (!(date1 instanceof Date) || !(date2 instanceof Date)) {
+    if (
+      !(date1 instanceof Temporal.PlainDateTime) ||
+      !(date2 instanceof Temporal.PlainDateTime)
+    ) {
       return false;
     }
 
     return (
-      date1.getFullYear() === date2.getFullYear() &&
-      date1.getMonth() === date2.getMonth() &&
-      date1.getDate() === date2.getDate() &&
-      date1.getHours() === date2.getHours()
+      date1.year === date2.year &&
+      date1.month === date2.month &&
+      date1.day === date2.day &&
+      date1.hour === date2.hour
     );
   }
 
   header(date) {
-    return new Intl.DateTimeFormat(this.locale).format(date);
+    return date.toLocaleString(this.locale);
   }
 }
 
@@ -447,7 +450,7 @@ export class ResourceCalendar {
     // calendar settings
     containerId: "container-resourcecalendar",
     defaultEventColor: "#5e5e5e",
-    initialDate: new Date(),
+    initialDate: Temporal.Now.plainDateTimeISO(),
     nowIndicator: true,
     selectable: true, // todo
     editable: true, // todo
@@ -533,7 +536,10 @@ export class ResourceCalendar {
     this.container.data("calendar", this);
 
     this.setViewMode(this.options.defaultViewMode, this.options.locale);
-    this.selectedDate = new Date(this.options.initialDate);
+    this.selectedDate =
+      this.options.initialDate instanceof Temporal.PlainDateTime
+        ? this.options.initialDate
+        : Temporal.PlainDateTime.from(this.options.initialDate);
     this.tabId = this.options.tabId;
 
     this.fetchResourcesFunction = this.options.fetchResourcesFunction;
@@ -603,8 +609,8 @@ export class ResourceCalendar {
     // calculate the ms of one subdivided date (column)
     this.subdivisionInterval =
       ResourceCalendarUtils.calculateIntervalMilliseconds(
-        new Date(this.dates[0]),
-        new Date(this.dates[1]),
+        this.dates[0],
+        this.dates[1],
       ) / this.subdivision;
 
     this.updateEventData();
@@ -846,7 +852,9 @@ export class ResourceCalendar {
                     value="${ResourceCalendarUtils.formatDateForInput(this.selectedDate)}">
         `).on("change", (event) => {
       const selectedDateString = event.target.value;
-      const selectedDate = new Date(selectedDateString);
+      const selectedDate = Temporal.PlainDate.from(
+        selectedDateString,
+      ).toPlainDateTime(Temporal.PlainTime.from("00:00:00"));
       this.selectDate(selectedDate);
     });
   }
@@ -873,7 +881,7 @@ export class ResourceCalendar {
       }),
     );
 
-    const today = new Date();
+    const today = Temporal.Now.plainDateTimeISO();
     this.todayIndex = null;
 
     // Date header cells
@@ -976,17 +984,18 @@ export class ResourceCalendar {
       !endDate ||
       !this.startDate ||
       !this.endDate ||
-      startDate > endDate ||
-      this.startDate > this.endDate
+      Temporal.PlainDateTime.compare(startDate, endDate) > 0 ||
+      Temporal.PlainDateTime.compare(this.startDate, this.endDate) > 0
     ) {
       return false;
     }
+    const cmp = Temporal.PlainDateTime.compare;
     const startDateBetweenBounds =
-      startDate < this.endDate && startDate >= this.startDate;
+      cmp(startDate, this.endDate) < 0 && cmp(startDate, this.startDate) >= 0;
     const endDateBetweenBounds =
-      endDate > this.startDate && endDate < this.endDate;
+      cmp(endDate, this.startDate) > 0 && cmp(endDate, this.endDate) < 0;
     const bothOverbounds =
-      this.startDate >= startDate && this.endDate <= endDate;
+      cmp(this.startDate, startDate) >= 0 && cmp(this.endDate, endDate) <= 0;
     return startDateBetweenBounds || endDateBetweenBounds || bothOverbounds;
   }
 
@@ -995,19 +1004,28 @@ export class ResourceCalendar {
   }
 
   getNextDate(date) {
-    return new Date(date.getTime() + this.subdivisionInterval);
+    return date
+      .toZonedDateTime(Temporal.Now.timeZoneId())
+      .add({ milliseconds: this.subdivisionInterval })
+      .toPlainDateTime();
   }
 
   getDateFromDiffX(diffX) {
-    return new Date(
-      this.startDate.getTime() +
-        (this.subdivisionInterval * diffX) / this.tdWidth,
-    );
+    const epochMs =
+      this.startDate.toZonedDateTime(Temporal.Now.timeZoneId())
+        .epochMilliseconds +
+      (this.subdivisionInterval * diffX) / this.tdWidth;
+    return Temporal.Instant.fromEpochMilliseconds(epochMs)
+      .toZonedDateTimeISO(Temporal.Now.timeZoneId())
+      .toPlainDateTime();
   }
 
   getDiffXFromDate(date) {
-    const diffTime = date.getTime() - this.startDate.getTime();
-    return (diffTime / this.subdivisionInterval) * this.tdWidth;
+    const diffMs =
+      date.toZonedDateTime(Temporal.Now.timeZoneId()).epochMilliseconds -
+      this.startDate.toZonedDateTime(Temporal.Now.timeZoneId())
+        .epochMilliseconds;
+    return (diffMs / this.subdivisionInterval) * this.tdWidth;
   }
 
   getBoundedDiffXFromDate(date) {
@@ -1109,7 +1127,7 @@ class ResourceCalendarEvent {
     );
 
     const startDate = calendar.getDateFromDiffX(snappedWidth);
-    const endDate = new Date(calendar.getNextDate(startDate));
+    const endDate = calendar.getNextDate(startDate);
     const resourceId = $startTd.closest("tr").data("resource_id");
     const eventId = null;
     const title = "";
@@ -1130,8 +1148,8 @@ class ResourceCalendarEvent {
   }
 
   static fromJSON(calendar, data) {
-    const startDate = new Date(data.start);
-    const endDate = new Date(data.end);
+    const startDate = Temporal.PlainDateTime.from(data.start);
+    const endDate = Temporal.PlainDateTime.from(data.end);
     const resourceId = data.resourceId?.toString() ?? null;
     const eventId = data.id ?? null;
     const title = data.title ?? "";
@@ -1254,8 +1272,12 @@ class ResourceCalendarEvent {
       }
       isResizing = true;
       startX = e.clientX;
-      startTime = event.startDate.getTime();
-      endTime = event.endDate.getTime();
+      startTime = event.startDate.toZonedDateTime(
+        Temporal.Now.timeZoneId(),
+      ).epochMilliseconds;
+      endTime = event.endDate.toZonedDateTime(
+        Temporal.Now.timeZoneId(),
+      ).epochMilliseconds;
       $event.addClass("resizing");
 
       e.preventDefault();
@@ -1346,14 +1368,15 @@ class ResourceCalendarEvent {
       "handle-start",
       true,
       "fa-solid fa-caret-left",
-      this.startDate < this.calendar.startDate,
+      Temporal.PlainDateTime.compare(this.startDate, this.calendar.startDate) <
+        0,
     );
 
     manageHandle(
       "handle-end",
       false,
       "fa-solid fa-caret-right",
-      this.endDate > this.calendar.endDate,
+      Temporal.PlainDateTime.compare(this.endDate, this.calendar.endDate) > 0,
     );
   }
 
@@ -1369,8 +1392,13 @@ class ResourceCalendarEvent {
       }
       this.resourceId = newId;
     }
-    this.setStartTime(this.startDate.getTime() + timeOffset);
-    this.setEndTime(this.endDate.getTime() + timeOffset);
+    const tz = Temporal.Now.timeZoneId();
+    this.setStartTime(
+      this.startDate.toZonedDateTime(tz).epochMilliseconds + timeOffset,
+    );
+    this.setEndTime(
+      this.endDate.toZonedDateTime(tz).epochMilliseconds + timeOffset,
+    );
     this.renderUpdate();
     if (!sameRow) {
       ResourceCalendarEvent.updateRow($previousRow);
@@ -1392,22 +1420,23 @@ class ResourceCalendarEvent {
     resizeStart = true,
   ) {
     const timeOffset = this.calendar.subdivisionsToTime(movedSubdivisions);
+    const tz = Temporal.Now.timeZoneId();
     if (resizeStart) {
       // resize at Start
       let newTime;
       if (this.calendar.viewmode.name === "day") {
         newTime = startTime;
       } else {
-        // as we use timestamps to modify the time, we need to adjust the resulting time using TimezoneOffset
+        const offsetMs =
+          this.startDate.toZonedDateTime(tz).offsetNanoseconds / 1e6;
         newTime =
           ResourceCalendarUtils.findBiggestEquidistantValue(
             startTime,
             this.calendar.subdivisionInterval,
-          ) +
-          this.startDate.getTimezoneOffset() * 60000;
+          ) - offsetMs;
       }
       newTime = newTime + timeOffset;
-      if (newTime >= this.endDate.getTime()) {
+      if (newTime >= this.endDate.toZonedDateTime(tz).epochMilliseconds) {
         return;
       }
       this.setStartTime(newTime);
@@ -1417,16 +1446,16 @@ class ResourceCalendarEvent {
       if (this.calendar.viewmode.name === "day") {
         newTime = endTime;
       } else {
-        // as we use timestamps to modify the time, we need to adjust the resulting time using TimezoneOffset
+        const offsetMs =
+          this.endDate.toZonedDateTime(tz).offsetNanoseconds / 1e6;
         newTime =
           ResourceCalendarUtils.findBiggestEquidistantValue(
             endTime,
             this.calendar.subdivisionInterval,
-          ) +
-          this.endDate.getTimezoneOffset() * 60000;
+          ) - offsetMs;
       }
       newTime = newTime + timeOffset;
-      if (newTime <= this.startDate.getTime()) {
+      if (newTime <= this.startDate.toZonedDateTime(tz).epochMilliseconds) {
         return;
       }
       this.setEndTime(newTime);
@@ -1466,11 +1495,15 @@ class ResourceCalendarEvent {
     let endDate = this.endDate;
     let startDate = this.startDate;
     if (this.allDay) {
-      startDate = new Date(startDate);
-      startDate.setHours(0, 0, 0, 0);
-      endDate = new Date(endDate);
-      endDate.setDate(endDate.getDate() + 1);
-      endDate.setHours(0, 0, 0, 0);
+      startDate = startDate.with({
+        hour: 0,
+        minute: 0,
+        second: 0,
+        millisecond: 0,
+      });
+      endDate = endDate
+        .add({ days: 1 })
+        .with({ hour: 0, minute: 0, second: 0, millisecond: 0 });
     }
 
     let diffXStart = this.calendar.getBoundedDiffXFromDate(startDate);
@@ -1518,11 +1551,12 @@ class ResourceCalendarEvent {
       })
       .get()
       .sort((a, b) => {
-        if (a.startDate < b.startDate) return -1;
-        if (a.startDate > b.startDate) return 1;
-        if (a.endDate < b.endDate) return -1;
-        if (a.endDate > b.endDate) return 1;
-        return 0;
+        const startCmp = Temporal.PlainDateTime.compare(
+          a.startDate,
+          b.startDate,
+        );
+        if (startCmp !== 0) return startCmp;
+        return Temporal.PlainDateTime.compare(a.endDate, b.endDate);
       });
 
     const processedEvents = [];
@@ -1530,7 +1564,8 @@ class ResourceCalendarEvent {
 
     const eventsOverlap = (eventA, eventB) => {
       return (
-        eventA.startDate < eventB.endDate && eventA.endDate > eventB.startDate
+        Temporal.PlainDateTime.compare(eventA.startDate, eventB.endDate) < 0 &&
+        Temporal.PlainDateTime.compare(eventA.endDate, eventB.startDate) > 0
       );
     };
 
@@ -1602,20 +1637,24 @@ class ResourceCalendarEvent {
     this.$event.css("top", this.heightIndex * this.$event.outerHeight());
   }
 
-  setStartTime(newTime) {
-    this.startDate.setTime(newTime);
+  setStartTime(newEpochMs) {
+    this.startDate = Temporal.Instant.fromEpochMilliseconds(newEpochMs)
+      .toZonedDateTimeISO(Temporal.Now.timeZoneId())
+      .toPlainDateTime();
   }
 
-  setEndTime(newTime) {
-    this.endDate.setTime(newTime);
+  setEndTime(newEpochMs) {
+    this.endDate = Temporal.Instant.fromEpochMilliseconds(newEpochMs)
+      .toZonedDateTimeISO(Temporal.Now.timeZoneId())
+      .toPlainDateTime();
   }
 
   setStartDate(newDate) {
-    this.setStartTime(newDate.getTime());
+    this.startDate = newDate;
   }
 
   setEndDate(newDate) {
-    this.setEndTime(newDate.getTime());
+    this.endDate = newDate;
   }
 
   setTitle(newTitle) {
