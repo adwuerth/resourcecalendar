@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Resource Calendar Test</title>
+  </head>
+  <body>
+    <div id="container-resourcecalendar"></div>
+
+    <script type="module">
+      import { ResourceCalendar } from "../src/index.js";
+
+      const options = {
+        fetchResourcesFunction: () => ({
+          1: "abc",
+          2: "abc2",
+          3: "abc3",
+        }),
+      };
+
+      const calendar = new ResourceCalendar(options);
+      calendar.render();
+    </script>
+  </body>
+</html>
