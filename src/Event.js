@@ -2,6 +2,9 @@ import $ from "jquery";
 import "./style.css";
 import { Temporal } from "temporal-polyfill";
 
+import iconArrowRight from "./assets/chevron-right.svg?raw";
+import iconArrowLeft from "./assets/chevron-left.svg?raw";
+
 import { Utils } from "./utils";
 
 export class Event {
@@ -314,18 +317,11 @@ export class Event {
   }
 
   toggleOverflowHandles() {
-    const manageHandle = (
-      handleClass,
-      isStartHandle,
-      iconClass,
-      overflowCondition,
-    ) => {
+    const manageHandle = (handleClass, overflowIcon, overflowCondition) => {
       const $handle = this.$event.find(`.${handleClass}`);
-
       if (overflowCondition && $handle.hasClass("resize-handle")) {
-        const $overflowIcon = $(`<i class="${iconClass}"></i>`);
         $handle.removeClass("resize-handle").addClass("overflow-handle");
-        $handle.append($overflowIcon);
+        $handle.append($(overflowIcon));
       } else if (!overflowCondition && $handle.hasClass("overflow-handle")) {
         $handle.removeClass("overflow-handle").addClass("resize-handle");
         $handle.find("i").remove();
@@ -334,16 +330,14 @@ export class Event {
 
     manageHandle(
       "handle-start",
-      true,
-      "fa-solid fa-caret-left",
+      iconArrowLeft,
       Temporal.PlainDateTime.compare(this.startDate, this.calendar.startDate) <
         0,
     );
 
     manageHandle(
       "handle-end",
-      false,
-      "fa-solid fa-caret-right",
+      iconArrowRight,
       Temporal.PlainDateTime.compare(this.endDate, this.calendar.endDate) > 0,
     );
   }
