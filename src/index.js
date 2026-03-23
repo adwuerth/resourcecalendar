@@ -2,6 +2,12 @@ import $ from "jquery";
 import "./style.css";
 import { Temporal } from "temporal-polyfill";
 
+import iconArrowRight from "./assets/chevron-right.svg?raw";
+import iconArrowLeft from "./assets/chevron-left.svg?raw";
+import iconCalendarDay from "./assets/calendar-day.svg?raw";
+import iconCalendarWeek from "./assets/calendar-week.svg?raw";
+import iconCalendarMonth from "./assets/calendar.svg?raw";
+
 /**
  * General Utility functions for calendar
  * note: put this into a module in the future
@@ -171,7 +177,9 @@ class ViewMode {
 
 class WeekView extends ViewMode {
   static name = "week";
-  static buttonIconClass = "fa-solid fa-calendar-week";
+  static buttonAttributes = {
+    iconHtml: iconCalendarWeek,
+  };
 
   constructor(options) {
     super(WeekView.name, options);
@@ -272,7 +280,9 @@ class WeekView extends ViewMode {
 
 class MonthView extends ViewMode {
   static name = "month";
-  static buttonIconClass = "fa-solid fa-calendar";
+  static buttonAttributes = {
+    iconHtml: iconCalendarMonth,
+  };
 
   constructor(options) {
     super(MonthView.name, options);
@@ -354,7 +364,9 @@ class MonthView extends ViewMode {
 
 class DayView extends ViewMode {
   static name = "day";
-  static buttonIconClass = "fa-solid fa-calendar-day";
+  static buttonAttributes = {
+    iconHtml: iconCalendarDay,
+  };
 
   constructor(options) {
     super(DayView.name, options);
@@ -508,11 +520,11 @@ export class ResourceCalendar {
       creationFunction: this.createDateSelect.bind(this),
     },
     prev: {
-      icon: "fa-solid fa-chevron-left",
+      iconHtml: iconArrowLeft,
       onClick: this.getPrev.bind(this),
     },
     next: {
-      icon: "fa-solid fa-chevron-right",
+      iconHtml: iconArrowRight,
       onClick: this.getNext.bind(this),
     },
   };
@@ -804,8 +816,10 @@ export class ResourceCalendar {
       const viewmodeTitle =
         String(viewmode).charAt(0).toUpperCase() + String(viewmode).slice(1);
 
+      const iconHtml = viewModes[viewmode].buttonAttributes.iconHtml;
+
       const $viewmodeBtn = $(`
-                <button title="${viewmodeTitle}" class="btn btn-dark"><i class="${viewModes[viewmode].buttonIconClass}"></i></button>
+                <button title="${viewmodeTitle}" class="btn btn-dark">${iconHtml}</button>
             `).on("click", () => {
         this.setViewMode(viewmode);
         this.updateDates();
@@ -833,7 +847,9 @@ export class ResourceCalendar {
             <button class="btn btn-dark">
         `).on("click", (event) => button.onClick(event));
 
-    if (button.icon) {
+    if (button.iconHtml) {
+      $button.html(button.iconHtml);
+    } else if (button.iconClass) {
       if (button.text) {
         $button.prop("title", button.text);
       }
