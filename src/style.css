@@ -4,6 +4,7 @@
     text-align: center;
     border-collapse: separate;
     border-spacing: 0;
+    table-layout: fixed;
   }
 
   thead th:not(:first-child) {
@@ -46,18 +47,25 @@
     z-index: -1;
   }
 
+  td.drag-over {
+    background-color: #d1e7dd;
+    border-style: dashed;
+  }
+
   .rc-event {
     height: 15px;
-    background-color: var(--bs-success-bg-subtle);
-    border: 1px solid var(--bs-success-border-subtle);
+    background-color: #d1e7dd;
+    border: 1px solid #a3cfbb;
     border-radius: 5px;
-    color: var(--bs-warning-text-emphasis);
+    color: #664d03;
     padding: 0px;
     cursor: grab;
     text-align: center;
     line-height: 40px;
     user-select: none;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     position: absolute;
     z-index: 10;
     box-sizing: border-box;
@@ -72,12 +80,13 @@
     position: absolute;
     width: 10px;
     height: 100%;
-    background-color: var(--bs-danger);
-    border: 1px solid var(--bs-success-border-subtle);
     cursor: ew-resize;
     z-index: 11;
     border-radius: 2px;
     bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .handle-start {
@@ -95,21 +104,125 @@
     z-index: 11;
     border-radius: 2px;
     bottom: 0;
-  }
-
-  td.drag-over {
-    background-color: var(--bs-success-bg-subtle);
-    border-style: dashed;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .resizing {
-    /* border-style: dashed; */
     user-select: none;
     cursor: ew-resize !important;
   }
 
+  /* ── Toolbar ────────────────────────────────────────────────────────────── */
   .rc-toolbar {
     display: flex;
     justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .rc-toolbar-part {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .rc-date-display {
+    font-weight: 700;
+    font-size: 1.25rem;
+    line-height: 1.5;
+  }
+
+  .rc-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #fff;
+    background-color: #212529;
+    border: 1px solid #212529;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    text-decoration: none;
+    transition:
+      color 0.15s ease-in-out,
+      background-color 0.15s ease-in-out,
+      border-color 0.15s ease-in-out;
+  }
+
+  .rc-btn:hover {
+    background-color: #424649;
+    border-color: #373b3e;
+  }
+
+  .rc-btn:active,
+  .rc-btn.active {
+    background-color: #4d5154;
+    border-color: #373b3e;
+  }
+
+  .rc-date-input {
+    display: block;
+    width: auto;
+    padding: 0.375rem 0.75rem;
+    font-size: 1rem;
+    font-weight: 400;
+    line-height: 1.5;
+    color: #212529;
+    background-color: #fff;
+    border: 1px solid #ced4da;
+    border-radius: 0.375rem;
+    box-sizing: border-box;
+    transition:
+      border-color 0.15s ease-in-out,
+      box-shadow 0.15s ease-in-out;
+  }
+
+  .rc-date-input:focus {
+    border-color: #86b7fe;
+    outline: 0;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+  }
+
+  .rc-table-container {
+    overflow-y: visible; /* maybe use scroll */
+    overflow-x: hidden;
+  }
+
+  .rc-row {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .rc-col {
+    flex: 1 0 0%;
+    min-width: 0;
+  }
+
+  .rc-resource-header {
+    padding: 0.25rem;
+  }
+
+  .rc-today {
+    background-color: #ffc107;
+  }
+
+  .rc-today-subtle {
+    background-color: #fff3cd;
+  }
+
+  .rc-table-striped tbody tr:nth-of-type(odd) {
+    background-color: rgba(0, 0, 0, 0.05);
+  }
+
+  .rc-col-stripe {
+    background-color: rgba(0, 0, 0, 0.05);
   }
 }

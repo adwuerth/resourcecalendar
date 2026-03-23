@@ -293,25 +293,24 @@ export class ResourceCalendar {
    */
   createTable() {
     const table = document.createElement("table");
-    table.classList.add("table", "table-responsive", "table-hover");
     table.style.tableLayout = "fixed";
     table.append(this.createHeader());
     table.append(this.createBody());
 
     if (this.options.striping === Striping.ROWS) {
-      table.classList.add("table-striped");
+      table.classList.add("rc-table-striped");
     }
 
     const tableContainer = document.createElement("div");
-    tableContainer.classList.add("overflow-y-scroll", "overflow-x-hidden");
+    tableContainer.classList.add("rc-table-container");
     tableContainer.append(table);
 
     const col = document.createElement("div");
-    col.classList.add("col");
+    col.classList.add("rc-col");
     col.append(tableContainer);
 
     const row = document.createElement("div");
-    row.classList.add("row");
+    row.classList.add("rc-row");
     row.append(col);
 
     return row;
@@ -324,15 +323,10 @@ export class ResourceCalendar {
    */
   createToolbar() {
     const toolbarRow = document.createElement("div");
-    toolbarRow.classList.add("row", "mb-2");
+    toolbarRow.classList.add("rc-row");
 
     const toolbar = document.createElement("div");
-    toolbar.classList.add(
-      "rc-toolbar",
-      "col",
-      "d-flex",
-      "justify-content-between",
-    );
+    toolbar.classList.add("rc-toolbar", "rc-col");
 
     toolbarRow.append(toolbar);
 
@@ -340,7 +334,7 @@ export class ResourceCalendar {
 
     for (const [key, value] of Object.entries(toolbarConfig)) {
       const toolbarPart = document.createElement("div");
-      toolbarPart.classList.add("d-flex");
+      toolbarPart.classList.add("rc-toolbar-part");
 
       let groups = value.split(" ");
       groups = groups.map((word) => word.split(","));
@@ -349,6 +343,7 @@ export class ResourceCalendar {
         let groupEl;
         if (group.length > 1) {
           const buttonGroup = document.createElement("div");
+          buttonGroup.classList.add("rc-toolbar-part");
           for (const button of group) {
             buttonGroup.append(this.createButton(this.buttons[button]));
           }
@@ -361,16 +356,6 @@ export class ResourceCalendar {
         toolbarPart.append(groupEl);
       }
 
-      if (key === "start") {
-        toolbarPart
-          .querySelectorAll(":scope > *")
-          .forEach((child) => child.classList.add("me-1"));
-      } else if (key === "end") {
-        toolbarPart
-          .querySelectorAll(":scope > *")
-          .forEach((child) => child.classList.add("ms-1"));
-      }
-
       toolbar.append(toolbarPart);
     }
 
@@ -379,6 +364,7 @@ export class ResourceCalendar {
 
   createViewModeButtons() {
     const viewmodeBtnDiv = document.createElement("div");
+    viewmodeBtnDiv.classList.add("rc-toolbar-part");
     const viewModes = ViewFactory.MODES;
 
     for (const viewmode in viewModes) {
@@ -390,7 +376,7 @@ export class ResourceCalendar {
 
       const btn = document.createElement("button");
       btn.setAttribute("title", viewmodeTitle);
-      btn.classList.add("btn", "btn-dark");
+      btn.classList.add("rc-btn");
       btn.innerHTML = iconHtml;
       btn.addEventListener("click", () => {
         this.setViewMode(viewmode);
@@ -411,7 +397,7 @@ export class ResourceCalendar {
   createDateDisplay() {
     const headerText = this.viewmode.header(this.selectedDate);
     const span = document.createElement("span");
-    span.classList.add("fw-bold", "fs-5");
+    span.classList.add("rc-date-display");
     span.textContent = headerText;
     return span;
   }
@@ -422,7 +408,7 @@ export class ResourceCalendar {
     }
 
     const btn = document.createElement("button");
-    btn.classList.add("btn", "btn-dark");
+    btn.classList.add("rc-btn");
     btn.addEventListener("click", (event) => button.onClick(event));
 
     if (button.iconHtml) {
@@ -443,7 +429,7 @@ export class ResourceCalendar {
 
   createDateSelect() {
     const input = document.createElement("input");
-    input.classList.add("form-control", "me-1");
+    input.classList.add("rc-date-input");
     input.type = "date";
     input.value = Utils.formatDateForInput(this.selectedDate);
     input.addEventListener("change", (event) => {
@@ -493,13 +479,12 @@ export class ResourceCalendar {
       dateTh.textContent = formattedDate;
 
       if (this.options.striping === Striping.COLUMNS && index % 2 === 0) {
-        dateTh.style.boxShadow =
-          "inset 0 0 0 9999px rgba(var(--bs-emphasis-color-rgb), 0.05)";
+        dateTh.classList.add("rc-col-stripe");
       }
 
       if (this.options.nowIndicator) {
         if (this.viewmode.equalsUnit(today, date)) {
-          dateTh.classList.add("bg-warning");
+          dateTh.classList.add("rc-today");
           this.todayIndex = index;
         }
       }
@@ -523,7 +508,7 @@ export class ResourceCalendar {
       const resourceRow = document.createElement("tr");
 
       const resourceTh = document.createElement("th");
-      resourceTh.classList.add("p-1");
+      resourceTh.classList.add("rc-resource-header");
       resourceTh.setAttribute("scope", "row");
       resourceTh.setAttribute("colspan", this.subdivision);
       resourceTh.style.width = "15vw";
@@ -535,19 +520,20 @@ export class ResourceCalendar {
           const resourceTd = document.createElement("td");
 
           if (this.todayIndex && i === this.todayIndex) {
-            resourceTd.classList.add("bg-warning-subtle");
+            resourceTd.classList.add("rc-today-subtle");
           }
 
           if (this.options.striping === Striping.COLUMNS && i % 2 === 0) {
-            resourceTd.style.boxShadow =
-              "inset 0 0 0 9999px rgba(var(--bs-emphasis-color-rgb), 0.05)";
+            resourceTd.classList.add("rc-col-stripe");
           }
 
           const borderStyle = j + 1 < this.subdivision ? "dashed" : "solid";
           resourceTd.style.borderRight = `1px rgba(0, 0, 0, 0.3) ${borderStyle}`;
 
           const dropzoneDiv = document.createElement("div");
-          dropzoneDiv.classList.add("dropzone", "w-100", "h-100");
+          dropzoneDiv.classList.add("dropzone");
+          dropzoneDiv.style.width = "100%";
+          dropzoneDiv.style.height = "100%";
           resourceTd.append(dropzoneDiv);
 
           resourceRow.append(resourceTd);

@@ -154,11 +154,11 @@ export class Event {
       <div
           id="event-${this.eventId}"
           draggable="true"
-          class="rc-event d-flex justify-content-center align-items-center">
+          class="rc-event">
           ${this.additionalEventHTML}
           <span style="text-overflow: ellipsis; overflow: hidden; white-space: nowrap;"></span>
-          <div class="resize-handle handle-start d-flex justify-content-center align-items-center"></div>
-          <div class="resize-handle handle-end d-flex justify-content-center align-items-center"></div>
+          <div class="resize-handle handle-start"></div>
+          <div class="resize-handle handle-end"></div>
       </div>
     `;
     const element = template.firstElementChild;
@@ -230,37 +230,6 @@ export class Event {
       delete element._dropTarget;
     });
 
-    function handleMouseDown(e, resizeStart, handle) {
-      if (handle.classList.contains("overflow-handle")) {
-        return;
-      }
-      isResizing = true;
-      startX = e.clientX;
-      startTime = event.startDate.toZonedDateTime(
-        Temporal.Now.timeZoneId(),
-      ).epochMilliseconds;
-      endTime = event.endDate.toZonedDateTime(
-        Temporal.Now.timeZoneId(),
-      ).epochMilliseconds;
-      element.classList.add("resizing");
-
-      e.preventDefault();
-      e.stopPropagation();
-
-      document.body.style.cursor = "ew-resize";
-
-      document.addEventListener("mousemove", handleMouseMoveResizing);
-      document.addEventListener("mouseup", handleMouseUpResizing);
-    }
-
-    function handleMouseMoveResizing(e) {
-      handleMouseMove(e, resizeStart);
-    }
-
-    function handleMouseUpResizing(e) {
-      handleMouseUp(e);
-    }
-
     // Store references so they can be removed if needed
     let resizeStart;
 
@@ -308,6 +277,7 @@ export class Event {
     function onMouseUp(e) {
       e.preventDefault();
       e.stopPropagation();
+
       if (isResizing) {
         element.classList.remove("resizing");
         document.body.style.cursor = "default";
