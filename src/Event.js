@@ -1,4 +1,3 @@
-import $ from "jquery";
 import "./style.css";
 import { Temporal } from "temporal-polyfill";
 
@@ -88,9 +87,10 @@ export class Event {
   }
 
   static fromClick(calendar, startTd, e) {
-    const $startTd = $(startTd).closest("tr").find("td").first();
-    const clickX = e.originalEvent.clientX;
-    const tdOffset = $startTd.offset().left;
+    const startTr = startTd.closest("tr");
+    const firstTd = startTr.querySelector("td");
+    const clickX = e.clientX;
+    const tdOffset = firstTd.getBoundingClientRect().left;
     const diffX = clickX - tdOffset;
     const snappedWidth = Utils.findSmallestEquidistantValue(
       diffX,
@@ -99,7 +99,7 @@ export class Event {
 
     const startDate = calendar.getDateFromDiffX(snappedWidth);
     const endDate = calendar.getNextDate(startDate);
-    const resourceId = $startTd.closest("tr").data("resource_id");
+    const resourceId = startTr.dataset.resource_id;
     const eventId = null;
     const title = "";
     const color = calendar.options.defaultEventColor;
@@ -145,24 +145,26 @@ export class Event {
    * initiate the event in the dom. note: this rerenders the event if it is already rendered
    */
   initiate() {
-    if (this.$event) {
+    if (this.element) {
       this.remove();
     }
 
-    const $event = $(`
-            <div
-                id="event-${this.eventId}"
-                draggable="true"
-                class="rc-event d-flex justify-content-center align-items-center">
-                ${this.additionalEventHTML}
-                <span style="text-overflow: ellipsis; overflow: hidden; white-space: nowrap;"></span>
-                <div class="resize-handle handle-start d-flex justify-content-center align-items-center"></div>
-                <div class="resize-handle handle-end d-flex justify-content-center align-items-center"></div>
-            </div>
-        `);
+    const template = document.createElement("div");
+    template.innerHTML = `
+      <div
+          id="event-${this.eventId}"
+          draggable="true"
+          class="rc-event d-flex justify-content-center align-items-center">
+          ${this.additionalEventHTML}
+          <span style="text-overflow: ellipsis; overflow: hidden; white-space: nowrap;"></span>
+          <div class="resize-handle handle-start d-flex justify-content-center align-items-center"></div>
+          <div class="resize-handle handle-end d-flex justify-content-center align-items-center"></div>
+      </div>
+    `;
+    const element = template.firstElementChild;
 
-    $event.data("event_id", this.eventId);
-    $event.data("event", this);
+    element._eventId = this.eventId;
+    element._event = this;
 
     const event = this;
 
@@ -171,17 +173,17 @@ export class Event {
     let startTime;
     let endTime;
 
-    const $resizeHandleStart = $event.find(".handle-start");
-    const $resizeHandleEnd = $event.find(".handle-end");
+    const resizeHandleStart = element.querySelector(".handle-start");
+    const resizeHandleEnd = element.querySelector(".handle-end");
 
-    $resizeHandleStart.on("mousedown", (e) =>
-      handleMouseDown(e, true, $resizeHandleStart),
+    resizeHandleStart.addEventListener("mousedown", (e) =>
+      handleMouseDown(e, true, resizeHandleStart),
     );
-    $resizeHandleEnd.on("mousedown", (e) =>
-      handleMouseDown(e, false, $resizeHandleEnd),
+    resizeHandleEnd.addEventListener("mousedown", (e) =>
+      handleMouseDown(e, false, resizeHandleEnd),
     );
 
-    $event.on("click", (e) => {
+    element.addEventListener("click", (e) => {
       e.stopPropagation();
       if (isResizing) {
         isResizing = false;
@@ -195,50 +197,41 @@ export class Event {
 
     let dragStartX;
 
-    $event.on("dragstart", (e) => {
+    element.addEventListener("dragstart", (e) => {
       dragStartX = e.clientX;
+      element._dropTarget = null;
+      e.dataTransfer.setData("text/plain", element.id);
 
-      $event.data("drop_target", null);
-
-      e.originalEvent.dataTransfer.setData("text/plain", e.currentTarget.id);
-
-      // timeout used for chromium fix
       setTimeout(() => {
-        $(e.currentTarget).css("opacity", "0.5");
-        $(e.currentTarget).css("cursor", "grabbing");
-        this.calendar.$dropzones.css("z-index", 1000);
+        element.style.opacity = "0.5";
+        element.style.cursor = "grabbing";
+        this.calendar.dropzones.forEach((dz) => (dz.style.zIndex = 1000));
       }, 0);
     });
 
-    $event.on("dragend", (e) => {
-      $(e.currentTarget).css({
-        opacity: "1",
-        cursor: "grab",
-      });
-      this.calendar.$dropzones.removeClass("drag-over");
+    element.addEventListener("dragend", (e) => {
+      element.style.opacity = "1";
+      element.style.cursor = "grab";
+      this.calendar.dropzones.forEach((dz) => dz.classList.remove("drag-over"));
 
-      const dropTarget = $event.data("drop_target");
+      const dropTarget = element._dropTarget;
 
       if (dropTarget !== null) {
-        const $dropTarget = $(dropTarget);
-        let endX = e.clientX;
-        const draggedDistanceX = endX - dragStartX;
-        const $newTr = $dropTarget.closest("tr");
-        let movedSubdivisions = Math.round(
+        const draggedDistanceX = e.clientX - dragStartX;
+        const newTr = dropTarget.closest("tr");
+        const movedSubdivisions = Math.round(
           draggedDistanceX / this.calendar.tdWidth,
         );
-        this.moveBySubdivisions(movedSubdivisions, $newTr);
+        this.moveBySubdivisions(movedSubdivisions, newTr);
         event.save();
-      } else {
-        // note: potential functionality: maybe drop it as far as possible
       }
 
-      event.calendar.$dropzones.css("z-index", -1);
-      $event.removeData("drop_target");
+      event.calendar.dropzones.forEach((dz) => (dz.style.zIndex = -1));
+      delete element._dropTarget;
     });
 
-    function handleMouseDown(e, resizeStart, $handle) {
-      if ($handle.hasClass("overflow-handle")) {
+    function handleMouseDown(e, resizeStart, handle) {
+      if (handle.classList.contains("overflow-handle")) {
         return;
       }
       isResizing = true;
@@ -249,20 +242,53 @@ export class Event {
       endTime = event.endDate.toZonedDateTime(
         Temporal.Now.timeZoneId(),
       ).epochMilliseconds;
-      $event.addClass("resizing");
+      element.classList.add("resizing");
 
       e.preventDefault();
       e.stopPropagation();
 
-      $("body").css("cursor", "ew-resize");
+      document.body.style.cursor = "ew-resize";
 
-      $(document).on("mousemove.resizing", (event) =>
-        handleMouseMove(event, resizeStart),
-      );
-      $(document).on("mouseup.resizing", (event) => handleMouseUp(event));
+      document.addEventListener("mousemove", handleMouseMoveResizing);
+      document.addEventListener("mouseup", handleMouseUpResizing);
     }
 
-    function handleMouseMove(e, resizeStart) {
+    function handleMouseMoveResizing(e) {
+      handleMouseMove(e, resizeStart);
+    }
+
+    function handleMouseUpResizing(e) {
+      handleMouseUp(e);
+    }
+
+    // Store references so they can be removed if needed
+    let resizeStart;
+
+    function handleMouseDown(e, isStart, handle) {
+      if (handle.classList.contains("overflow-handle")) {
+        return;
+      }
+      isResizing = true;
+      resizeStart = isStart;
+      startX = e.clientX;
+      startTime = event.startDate.toZonedDateTime(
+        Temporal.Now.timeZoneId(),
+      ).epochMilliseconds;
+      endTime = event.endDate.toZonedDateTime(
+        Temporal.Now.timeZoneId(),
+      ).epochMilliseconds;
+      element.classList.add("resizing");
+
+      e.preventDefault();
+      e.stopPropagation();
+
+      document.body.style.cursor = "ew-resize";
+
+      document.addEventListener("mousemove", onMouseMove);
+      document.addEventListener("mouseup", onMouseUp);
+    }
+
+    function onMouseMove(e) {
       e.preventDefault();
       e.stopPropagation();
       if (!isResizing) return;
@@ -279,20 +305,21 @@ export class Event {
       );
     }
 
-    function handleMouseUp(e) {
+    function onMouseUp(e) {
       e.preventDefault();
       e.stopPropagation();
       if (isResizing) {
-        $event.removeClass("resizing");
-        $("body").css("cursor", "default");
+        element.classList.remove("resizing");
+        document.body.style.cursor = "default";
 
-        $(document).off(".resizing");
+        document.removeEventListener("mousemove", onMouseMove);
+        document.removeEventListener("mouseup", onMouseUp);
 
         event.save();
       }
     }
 
-    this.$event = $event;
+    this.element = element;
   }
 
   /**
@@ -300,7 +327,7 @@ export class Event {
    * This does not update the rendering in the row, call event.updateRow() after
    */
   renderPartial() {
-    if (!this.$event) {
+    if (!this.element) {
       this.initiate();
     }
 
@@ -318,13 +345,21 @@ export class Event {
 
   toggleOverflowHandles() {
     const manageHandle = (handleClass, overflowIcon, overflowCondition) => {
-      const $handle = this.$event.find(`.${handleClass}`);
-      if (overflowCondition && $handle.hasClass("resize-handle")) {
-        $handle.removeClass("resize-handle").addClass("overflow-handle");
-        $handle.append($(overflowIcon));
-      } else if (!overflowCondition && $handle.hasClass("overflow-handle")) {
-        $handle.removeClass("overflow-handle").addClass("resize-handle");
-        $handle.find("i").remove();
+      const handle = this.element.querySelector(`.${handleClass}`);
+      if (overflowCondition && handle.classList.contains("resize-handle")) {
+        handle.classList.remove("resize-handle");
+        handle.classList.add("overflow-handle");
+        const iconTemplate = document.createElement("div");
+        iconTemplate.innerHTML = overflowIcon;
+        handle.append(iconTemplate.firstElementChild);
+      } else if (
+        !overflowCondition &&
+        handle.classList.contains("overflow-handle")
+      ) {
+        handle.classList.remove("overflow-handle");
+        handle.classList.add("resize-handle");
+        const icon = handle.querySelector("i");
+        if (icon) icon.remove();
       }
     };
 
@@ -342,13 +377,13 @@ export class Event {
     );
   }
 
-  moveBySubdivisions(movedSubdivisions, $newTr = null) {
+  moveBySubdivisions(movedSubdivisions, newTr = null) {
     const timeOffset = this.calendar.subdivisionsToTime(movedSubdivisions);
-    const $previousRow = this.getRow();
+    const previousRow = this.getRow();
 
     let sameRow = false;
-    if ($newTr !== null) {
-      const newId = $newTr.data("resource_id");
+    if (newTr !== null) {
+      const newId = newTr.dataset.resource_id;
       if (this.resourceId === newId) {
         sameRow = true;
       }
@@ -363,7 +398,7 @@ export class Event {
     );
     this.renderUpdate();
     if (!sameRow) {
-      Event.updateRow($previousRow);
+      Event.updateRow(previousRow);
     }
     this.updateRow();
   }
@@ -430,27 +465,28 @@ export class Event {
    * safely detach the event element from dom to move it
    */
   detach() {
-    if (!this.$event) {
+    if (!this.element) {
       // dom event doesnt exist
       return;
     }
-    this.$event.detach();
+    this.element.parentNode?.removeChild(this.element);
   }
 
   /**
-   * removes event element and its jquery data
+   * removes event element
    */
   remove() {
-    if (!this.$event) {
+    if (!this.element) {
       // dom event doesnt exist
       return;
     }
 
-    let $prevTr = this.$event.closest("tr");
+    const prevTr = this.element.closest("tr");
 
-    this.$event.remove();
+    this.element.remove();
+    this.element = null;
 
-    Event.updateRow($prevTr);
+    Event.updateRow(prevTr);
   }
 
   updatePositionAndWidth() {
@@ -471,23 +507,18 @@ export class Event {
     let diffXStart = this.calendar.getBoundedDiffXFromDate(startDate);
     let diffXEnd = this.calendar.getBoundedDiffXFromDate(endDate);
 
-    this.$event.css({
-      left: diffXStart,
-      right: diffXEnd,
-    });
-
-    this.$event.width(diffXEnd - diffXStart);
+    this.element.style.left = diffXStart + "px";
+    this.element.style.right = diffXEnd + "px";
+    this.element.style.width = diffXEnd - diffXStart + "px";
   }
 
   moveToCorrectResource() {
-    const $tr = this.getRow();
-    const $td = $tr.find("td").first();
+    const tr = this.getRow();
+    const td = tr.querySelector("td");
 
-    this.$event.css({
-      top: 0,
-    });
+    this.element.style.top = "0px";
 
-    $td.append(this.$event);
+    td.append(this.element);
   }
 
   getRow() {
@@ -498,20 +529,21 @@ export class Event {
     Event.updateRow(this.getRow());
   }
 
-  static updateRow($tr) {
-    if (!$tr) {
+  static updateRow(tr) {
+    if (!tr) {
       return;
     }
 
-    const $td = $tr.find("td").first();
+    const td = tr.querySelector("td");
+    if (!td) {
+      return;
+    }
 
-    const $events = $td.find(".rc-event");
+    const eventElements = Array.from(td.querySelectorAll(".rc-event"));
 
-    const allEvents = $events
-      .map((index, element) => {
-        return $(element).data("event");
-      })
-      .get()
+    const allEvents = eventElements
+      .map((el) => el._event)
+      .filter(Boolean)
       .sort((a, b) => {
         const startCmp = Temporal.PlainDateTime.compare(
           a.startDate,
@@ -554,17 +586,17 @@ export class Event {
     });
 
     // trIndex is used to avoid expensive reflow
-    const trIndex = $tr.data("height_index");
-    if ($events.length > 0) {
+    const trIndex = tr._heightIndex ?? 0;
+    if (eventElements.length > 0) {
       if (trIndex !== maxHeightIndex) {
-        const singleEventHeight = $events.first().height();
-        $tr.height((maxHeightIndex + 2) * singleEventHeight);
-        $tr.data("height_index", maxHeightIndex);
+        const singleEventHeight = eventElements[0].offsetHeight;
+        tr.style.height = (maxHeightIndex + 2) * singleEventHeight + "px";
+        tr._heightIndex = maxHeightIndex;
       }
     } else {
       if (trIndex > 0) {
-        $tr.height(0);
-        $tr.data("height_index", 0);
+        tr.style.height = "0px";
+        tr._heightIndex = 0;
       }
     }
 
@@ -596,7 +628,8 @@ export class Event {
    */
   shiftToIndex() {
     this.heightIndex = Math.max(0, this.heightIndex);
-    this.$event.css("top", this.heightIndex * this.$event.outerHeight());
+    this.element.style.top =
+      this.heightIndex * this.element.offsetHeight + "px";
   }
 
   setStartTime(newEpochMs) {
@@ -632,14 +665,14 @@ export class Event {
   }
 
   updateTitle() {
-    this.$event.attr("title", this.title);
-    this.$event.find("span").text(this.title);
+    this.element.setAttribute("title", this.title);
+    this.element.querySelector("span").textContent = this.title;
   }
 
   updateColor() {
-    this.$event.css("background-color", this.color);
-    this.$event.css("border-color", Utils.shadeColor(this.color, 1.1));
-    this.$event.css("color", Utils.getContrastYIQ(this.color));
+    this.element.style.backgroundColor = this.color;
+    this.element.style.borderColor = Utils.shadeColor(this.color, 1.1);
+    this.element.style.color = Utils.getContrastYIQ(this.color);
   }
 
   save() {

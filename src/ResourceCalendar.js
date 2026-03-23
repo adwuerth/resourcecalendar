@@ -1,4 +1,3 @@
-import $ from "jquery";
 import "./style.css";
 import { Temporal } from "temporal-polyfill";
 
@@ -90,17 +89,17 @@ export class ResourceCalendar {
   constructor(options = {}) {
     this.options = { ...ResourceCalendar.DEFAULT_OPTIONS, ...options };
 
-    this.container = $("#" + this.options.containerId);
-    this.container.empty();
+    this.container = document.getElementById(this.options.containerId);
 
-    if (this.container.length === 0) {
+    if (!this.container) {
       console.error(
         `ResourceCalendar Error: Container element with ID "${this.options.containerId}" not found.`,
       );
       return;
     }
 
-    this.container.data("calendar", this);
+    this.container.innerHTML = "";
+    this.container._calendar = this;
 
     this.setViewMode(this.options.defaultViewMode, this.options.locale);
     this.selectedDate =
@@ -202,7 +201,8 @@ export class ResourceCalendar {
   }
 
   renderEvents() {
-    this.tdWidth = this.container.find("td").outerWidth();
+    const firstTd = this.container.querySelector("td");
+    this.tdWidth = firstTd ? firstTd.offsetWidth : 0;
 
     // check if calendar is rendered
     if (!this.tdWidth) {
@@ -217,8 +217,8 @@ export class ResourceCalendar {
       }
     }
 
-    this.$calendar.find("tr").each((index, tr) => {
-      Event.updateRow($(tr));
+    this.calendarEl.querySelectorAll("tr").forEach((tr) => {
+      Event.updateRow(tr);
     });
   }
 
@@ -226,7 +226,7 @@ export class ResourceCalendar {
    * Clears the container and renders the resource calendar table based on the provided data
    */
   render() {
-    if (!this.container || this.container.length === 0) {
+    if (!this.container) {
       console.error(
         "ResourceCalendar Error: Cannot render. Instance is not valid or container not found.",
       );
@@ -235,134 +235,153 @@ export class ResourceCalendar {
 
     const calendar = this;
 
-    this.$calendar = $(`<div>`);
+    this.calendarEl = document.createElement("div");
 
-    const $toolbar = this.createToolbar();
-    this.$calendar.append($toolbar);
+    const toolbar = this.createToolbar();
+    this.calendarEl.append(toolbar);
 
-    const $table = this.createTable();
-    this.$calendar.append($table);
+    const table = this.createTable();
+    this.calendarEl.append(table);
 
-    this.container.empty();
-    this.container.append(this.$calendar);
+    this.container.innerHTML = "";
+    this.container.append(this.calendarEl);
 
-    let $tds = this.container.find("td");
-
-    const $dropzones = this.container.find(".dropzone");
-    this.$dropzones = $dropzones;
+    this.dropzones = Array.from(this.container.querySelectorAll(".dropzone"));
 
     this.renderEvents();
 
-    $tds.on("click", function (e) {
-      const event = Event.fromClick(calendar, this, e);
-
-      calendar.dateClick?.(event);
+    this.container.querySelectorAll("td").forEach((td) => {
+      td.addEventListener("click", function (e) {
+        const event = Event.fromClick(calendar, this, e);
+        calendar.dateClick?.(event);
+      });
     });
 
-    $dropzones.on("dragenter", function (e) {
-      e.preventDefault();
-      $(this).addClass("drag-over");
-    });
+    this.dropzones.forEach((dz) => {
+      dz.addEventListener("dragenter", function (e) {
+        e.preventDefault();
+        this.classList.add("drag-over");
+      });
 
-    $dropzones.on("dragover", function (e) {
-      e.preventDefault();
-    });
+      dz.addEventListener("dragover", function (e) {
+        e.preventDefault();
+      });
 
-    $dropzones.on("dragleave", function () {
-      $(this).removeClass("drag-over");
-    });
+      dz.addEventListener("dragleave", function () {
+        this.classList.remove("drag-over");
+      });
 
-    $dropzones.on("drop", function (e) {
-      e.preventDefault();
+      dz.addEventListener("drop", function (e) {
+        e.preventDefault();
 
-      $(this).removeClass("drag-over");
+        this.classList.remove("drag-over");
 
-      const id = e.originalEvent.dataTransfer.getData("text/plain");
-      const $event = $("#" + id);
-      $event.data("drop_target", e.target);
+        const id = e.dataTransfer.getData("text/plain");
+        const eventEl = document.getElementById(id);
+        if (eventEl) {
+          eventEl._dropTarget = e.target;
+        }
+      });
     });
 
     this.isRendered = true;
   }
 
   /**
-   *
-   * @return {jQuery}
+   * Creates the table element
+   * @returns {HTMLElement}
    */
   createTable() {
-    const $table = $("<table>")
-      .addClass("table table-responsive table-hover")
-      .css({
-        tableLayout: "fixed",
-      })
-      .append(this.createHeader())
-      .append(this.createBody());
+    const table = document.createElement("table");
+    table.classList.add("table", "table-responsive", "table-hover");
+    table.style.tableLayout = "fixed";
+    table.append(this.createHeader());
+    table.append(this.createBody());
 
     if (this.options.striping === Striping.ROWS) {
-      $table.addClass("table-striped");
+      table.classList.add("table-striped");
     }
 
-    const $tableContainer = $("<div>")
-      .addClass("overflow-y-scroll overflow-x-hidden")
-      .css("height", "85vh")
-      .append($table);
+    const tableContainer = document.createElement("div");
+    tableContainer.classList.add("overflow-y-scroll", "overflow-x-hidden");
+    tableContainer.style.height = "85vh";
+    tableContainer.append(table);
 
-    const $col = $("<div>").addClass("col").append($tableContainer);
+    const col = document.createElement("div");
+    col.classList.add("col");
+    col.append(tableContainer);
 
-    return $("<div>").addClass("row").append($col);
+    const row = document.createElement("div");
+    row.classList.add("row");
+    row.append(col);
+
+    return row;
   }
 
   /**
    * Creates the toolbar element
-   * @returns {jQuery} The generated thead jQuery object.
+   * @returns {HTMLElement} The generated toolbar element.
    * @private
    */
   createToolbar() {
-    const $toolbarRow = $(`
-            <div class="row mb-2">
-                <div class="rc-toolbar col d-flex justify-content-between">
+    const toolbarRow = document.createElement("div");
+    toolbarRow.classList.add("row", "mb-2");
 
-                </div>
-            </div>
-        `);
+    const toolbar = document.createElement("div");
+    toolbar.classList.add(
+      "rc-toolbar",
+      "col",
+      "d-flex",
+      "justify-content-between",
+    );
 
-    const $toolbar = $toolbarRow.children().first();
+    toolbarRow.append(toolbar);
 
     const toolbarConfig = this.options.toolbar;
 
     for (const [key, value] of Object.entries(toolbarConfig)) {
-      const $toolbarPart = $(`<div class="d-flex">`);
+      const toolbarPart = document.createElement("div");
+      toolbarPart.classList.add("d-flex");
+
       let groups = value.split(" ");
       groups = groups.map((word) => word.split(","));
+
       for (const group of groups) {
-        let $group;
+        let groupEl;
         if (group.length > 1) {
-          const $buttonGroup = $(`<div>`);
+          const buttonGroup = document.createElement("div");
           for (const button of group) {
-            $buttonGroup.append(this.createButton(this.buttons[button]));
+            buttonGroup.append(this.createButton(this.buttons[button]));
           }
-          $group = $buttonGroup;
+          groupEl = buttonGroup;
         } else if (group.length === 1) {
-          $group = this.createButton(this.buttons[group[0]]);
+          groupEl = this.createButton(this.buttons[group[0]]);
         } else {
           continue;
         }
-        $toolbarPart.append($group);
+        toolbarPart.append(groupEl);
       }
+
       if (key === "start") {
-        $toolbarPart.children().addClass("me-1");
+        toolbarPart
+          .querySelectorAll(":scope > *")
+          .forEach((child) => child.classList.add("me-1"));
       } else if (key === "end") {
-        $toolbarPart.children().addClass("ms-1");
+        toolbarPart
+          .querySelectorAll(":scope > *")
+          .forEach((child) => child.classList.add("ms-1"));
       }
-      $toolbar.append($toolbarPart);
+
+      toolbar.append(toolbarPart);
     }
 
-    return $toolbarRow;
+    return toolbarRow;
   }
 
   createViewModeButtons() {
-    const $viewmodeBtnDiv = $(`<div>`);
+    const viewmodeBtnDiv = document.createElement("div");
     const viewModes = ViewFactory.MODES;
+
     for (const viewmode in viewModes) {
       // todo: make this language independent, for now only on english
       const viewmodeTitle =
@@ -370,24 +389,32 @@ export class ResourceCalendar {
 
       const iconHtml = viewModes[viewmode].buttonAttributes.iconHtml;
 
-      const $viewmodeBtn = $(`
-                <button title="${viewmodeTitle}" class="btn btn-dark">${iconHtml}</button>
-            `).on("click", () => {
+      const btn = document.createElement("button");
+      btn.setAttribute("title", viewmodeTitle);
+      btn.classList.add("btn", "btn-dark");
+      btn.innerHTML = iconHtml;
+      btn.addEventListener("click", () => {
         this.setViewMode(viewmode);
         this.updateDates();
         this.render();
       });
+
       if (viewModes[viewmode].name === this.viewmode.name) {
-        $viewmodeBtn.addClass("active");
+        btn.classList.add("active");
       }
-      $viewmodeBtnDiv.append($viewmodeBtn);
+
+      viewmodeBtnDiv.append(btn);
     }
-    return $viewmodeBtnDiv;
+
+    return viewmodeBtnDiv;
   }
 
   createDateDisplay() {
     const headerText = this.viewmode.header(this.selectedDate);
-    return $(`<span class="fw-bold fs-5">${headerText}</span>`);
+    const span = document.createElement("span");
+    span.classList.add("fw-bold", "fs-5");
+    span.textContent = headerText;
+    return span;
   }
 
   createButton(button) {
@@ -395,148 +422,147 @@ export class ResourceCalendar {
       return button.creationFunction();
     }
 
-    const $button = $(`
-            <button class="btn btn-dark">
-        `).on("click", (event) => button.onClick(event));
+    const btn = document.createElement("button");
+    btn.classList.add("btn", "btn-dark");
+    btn.addEventListener("click", (event) => button.onClick(event));
 
     if (button.iconHtml) {
-      $button.html(button.iconHtml);
+      btn.innerHTML = button.iconHtml;
     } else if (button.iconClass) {
       if (button.text) {
-        $button.prop("title", button.text);
+        btn.setAttribute("title", button.text);
       }
-      $button.append($(`<i class="${button.icon}"></i>`));
+      const icon = document.createElement("i");
+      icon.className = button.icon;
+      btn.append(icon);
     } else if (button.text) {
-      $button.text(button.text);
+      btn.textContent = button.text;
     }
 
-    return $button;
+    return btn;
   }
 
   createDateSelect() {
-    return $(`
-            <input
-                    class="form-control me-1"
-                    type="date"
-                    value="${Utils.formatDateForInput(this.selectedDate)}">
-        `).on("change", (event) => {
+    const input = document.createElement("input");
+    input.classList.add("form-control", "me-1");
+    input.type = "date";
+    input.value = Utils.formatDateForInput(this.selectedDate);
+    input.addEventListener("change", (event) => {
       const selectedDateString = event.target.value;
       const selectedDate = Temporal.PlainDate.from(
         selectedDateString,
       ).toPlainDateTime(Temporal.PlainTime.from("00:00:00"));
       this.selectDate(selectedDate);
     });
+    return input;
   }
 
   /**
    * Creates the table header (<thead>) element
-   * @returns {jQuery} The generated thead jQuery object.
+   * @returns {HTMLElement} The generated thead element.
    * @private
    */
   createHeader() {
-    const $thead = $("<thead>").css({
-      position: "sticky",
-      top: "0px",
-      zIndex: 1000,
-    });
-    const $headerRow = $("<tr>");
+    const thead = document.createElement("thead");
+    thead.style.position = "sticky";
+    thead.style.top = "0px";
+    thead.style.zIndex = 1000;
+
+    const headerRow = document.createElement("tr");
 
     // First empty header cell (top-left corner)
-    $headerRow.append(
-      $("<th>").attr("scope", "col").attr("colspan", this.subdivision).css({
-        width: "15vw",
-        position: "sticky",
-        top: "0px",
-      }),
-    );
+    const cornerTh = document.createElement("th");
+    cornerTh.setAttribute("scope", "col");
+    cornerTh.setAttribute("colspan", this.subdivision);
+    cornerTh.style.width = "15vw";
+    cornerTh.style.position = "sticky";
+    cornerTh.style.top = "0px";
+    headerRow.append(cornerTh);
 
     const today = Temporal.Now.plainDateTimeISO();
     this.todayIndex = null;
 
     // Date header cells
-    $.each(this.dates, (index, date) => {
+    this.dates.forEach((date, index) => {
       const formattedDate = this.viewmode.formatDate(date);
 
-      const $dateTh = $("<th>")
-        .attr("scope", "col")
-        .attr("colspan", this.subdivision)
-        .css({
-          position: "sticky",
-          top: "0px",
-        })
-        .text(formattedDate);
+      const dateTh = document.createElement("th");
+      dateTh.setAttribute("scope", "col");
+      dateTh.setAttribute("colspan", this.subdivision);
+      dateTh.style.position = "sticky";
+      dateTh.style.top = "0px";
+      dateTh.textContent = formattedDate;
 
       if (this.options.striping === Striping.COLUMNS && index % 2 === 0) {
-        $dateTh.css(
-          "box-shadow",
-          "inset 0 0 0 9999px rgba(var(--bs-emphasis-color-rgb), 0.05)",
-        );
+        dateTh.style.boxShadow =
+          "inset 0 0 0 9999px rgba(var(--bs-emphasis-color-rgb), 0.05)";
       }
 
       if (this.options.nowIndicator) {
         if (this.viewmode.equalsUnit(today, date)) {
-          $dateTh.addClass("bg-warning");
+          dateTh.classList.add("bg-warning");
           this.todayIndex = index;
         }
       }
 
-      $headerRow.append($dateTh);
+      headerRow.append(dateTh);
     });
-    $thead.append($headerRow);
-    return $thead;
+
+    thead.append(headerRow);
+    return thead;
   }
 
   /**
    * Creates the table body (<tbody>) element
-   * @returns {jQuery} The generated tbody jQuery object.
+   * @returns {HTMLElement} The generated tbody element.
    * @private
    */
   createBody() {
-    const $tbody = $("<tbody>");
+    const tbody = document.createElement("tbody");
 
     this.resources.forEach((resource, resourceId) => {
-      const $resourceRow = $("<tr>");
+      const resourceRow = document.createElement("tr");
 
-      const $resourceTh = $("<th>")
-        .addClass("p-1")
-        .attr("scope", "row")
-        .attr("colspan", this.subdivision)
-        .css({
-          width: "15vw",
-        })
-        .html(`${resource} (${resourceId})`);
-      $resourceRow.append($resourceTh);
+      const resourceTh = document.createElement("th");
+      resourceTh.classList.add("p-1");
+      resourceTh.setAttribute("scope", "row");
+      resourceTh.setAttribute("colspan", this.subdivision);
+      resourceTh.style.width = "15vw";
+      resourceTh.innerHTML = `${resource} (${resourceId})`;
+      resourceRow.append(resourceTh);
+
       for (let i = 0; i < this.dates.length; i++) {
         for (let j = 0; j < this.subdivision; j++) {
-          const $resourceTd = $("<td>");
+          const resourceTd = document.createElement("td");
+
           if (this.todayIndex && i === this.todayIndex) {
-            $resourceTd.addClass("bg-warning-subtle");
+            resourceTd.classList.add("bg-warning-subtle");
           }
+
           if (this.options.striping === Striping.COLUMNS && i % 2 === 0) {
-            $resourceTd.css(
-              "box-shadow",
-              "inset 0 0 0 9999px rgba(var(--bs-emphasis-color-rgb), 0.05)",
-            );
+            resourceTd.style.boxShadow =
+              "inset 0 0 0 9999px rgba(var(--bs-emphasis-color-rgb), 0.05)";
           }
-          let borderStyle = j + 1 < this.subdivision ? "dashed" : "solid";
-          $resourceTd.css({
-            borderRight: `1px rgba(0, 0, 0, 0.3) ${borderStyle}`,
-          });
-          const $dropzoneDiv = $("<div>").addClass("dropzone w-100 h-100");
-          $resourceTd.append($dropzoneDiv);
-          $resourceRow.append($resourceTd);
+
+          const borderStyle = j + 1 < this.subdivision ? "dashed" : "solid";
+          resourceTd.style.borderRight = `1px rgba(0, 0, 0, 0.3) ${borderStyle}`;
+
+          const dropzoneDiv = document.createElement("div");
+          dropzoneDiv.classList.add("dropzone", "w-100", "h-100");
+          resourceTd.append(dropzoneDiv);
+
+          resourceRow.append(resourceTd);
         }
       }
-      $resourceRow.data({
-        resource_id: resourceId,
-        height_index: 0,
-      });
 
-      $tbody.append($resourceRow);
-      this.rows.set(resourceId, $resourceRow);
+      resourceRow.dataset.resource_id = resourceId;
+      resourceRow._heightIndex = 0;
+
+      tbody.append(resourceRow);
+      this.rows.set(resourceId, resourceRow);
     });
 
-    return $tbody;
+    return tbody;
   }
 
   getNext() {

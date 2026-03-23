@@ -28,7 +28,6 @@
   "author": "Adrian Würth",
   "license": "GPL-2.0-only",
   "dependencies": {
-    "jquery": "^3.7.1",
     "temporal-polyfill": "^0.3.2"
   },
   "devDependencies": {
