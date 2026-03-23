@@ -768,7 +768,7 @@ export class ResourceCalendar {
   createToolbar() {
     const $toolbarRow = $(`
             <div class="row mb-2">
-                <div class="col d-flex justify-content-between">
+                <div class="rc-toolbar col d-flex justify-content-between">
 
                 </div>
             </div>
