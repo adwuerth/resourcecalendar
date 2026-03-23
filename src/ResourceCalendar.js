@@ -304,7 +304,6 @@ export class ResourceCalendar {
 
     const tableContainer = document.createElement("div");
     tableContainer.classList.add("overflow-y-scroll", "overflow-x-hidden");
-    tableContainer.style.height = "85vh";
     tableContainer.append(table);
 
     const col = document.createElement("div");
