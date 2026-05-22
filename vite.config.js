@@ -9,14 +9,6 @@ export default defineConfig({
       fileName: (format) => `resourcecalendar.${format}.js`,
       formats: ["es", "umd"],
     },
-    rollupOptions: {
-      external: ["jquery"],
-      output: {
-        globals: {
-          jquery: "$",
-        },
-      },
-    },
     cssCodeSplit: false,
   },
 });
