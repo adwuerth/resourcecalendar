@@ -1,3 +1,4 @@
+import { Temporal } from "temporal-polyfill";
 import { ViewMode } from "./ViewMode";
 import iconCalendarDay from "./assets/calendar-day.svg?raw";
 

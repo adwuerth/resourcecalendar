@@ -2,6 +2,8 @@
  * General Utility functions for calendar
  * note: put this into a module in the future
  */
+import { Temporal } from "temporal-polyfill";
+
 export const Utils = {
   /**
    * Calculates the absolute time difference between two dates in milliseconds.
@@ -37,15 +39,25 @@ export const Utils = {
   },
 
   /**
-   * hex color string to rgb number array
+   * hex color string to rgb number array. accepts #rgb / #rrggbb (with or
+   * without leading #); returns black for anything it cannot parse.
    * @param color
    * @return {number[]}
    */
   getRGB(color) {
-    color = color.startsWith("#") ? color.substring(1) : color;
-    const r = parseInt(color.substring(0, 2), 16);
-    const g = parseInt(color.substring(2, 4), 16);
-    const b = parseInt(color.substring(4, 6), 16);
+    let hex = color.startsWith("#") ? color.substring(1) : color;
+    if (hex.length === 3) {
+      hex = hex
+        .split("")
+        .map((c) => c + c)
+        .join("");
+    }
+    const r = parseInt(hex.substring(0, 2), 16);
+    const g = parseInt(hex.substring(2, 4), 16);
+    const b = parseInt(hex.substring(4, 6), 16);
+    if ([r, g, b].some(Number.isNaN)) {
+      return [0, 0, 0];
+    }
     return [r, g, b];
   },
 
@@ -77,33 +89,31 @@ export const Utils = {
   },
 
   /**
-   * find the highest multiple of interval that is smaller than target
+   * largest multiple of interval that is less than or equal to target
    * @param target
    * @param interval
    * @return {number}
    */
-  findSmallestEquidistantValue(target, interval) {
+  floorToMultiple(target, interval) {
     if (interval === 0) {
       return 0;
     }
 
-    const roundedQuotient = Math.floor(target / interval);
-    return roundedQuotient * interval;
+    return Math.floor(target / interval) * interval;
   },
 
   /**
-   * find the smallest multiple of interval that is bigger than target
+   * smallest multiple of interval that is greater than or equal to target
    * @param target
    * @param interval
    * @return {number}
    */
-  findBiggestEquidistantValue(target, interval) {
+  ceilToMultiple(target, interval) {
     if (interval === 0) {
       return 0;
     }
 
-    const roundedQuotient = Math.ceil(target / interval);
-    return roundedQuotient * interval;
+    return Math.ceil(target / interval) * interval;
   },
 
   /**

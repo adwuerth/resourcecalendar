@@ -25,7 +25,7 @@ export class ResourceCalendar {
     eventDrop: null,
     eventClick: null,
     dateClick: (event) => {
-      event.render();
+      event?.render();
     },
 
     saveEventFunction: null,
@@ -53,7 +53,7 @@ export class ResourceCalendar {
       return {};
     },
     fetchEventDataFunction: () => {
-      return {};
+      return [];
     },
 
     customButtons: {},
@@ -101,7 +101,7 @@ export class ResourceCalendar {
     this.container.innerHTML = "";
     this.container._calendar = this;
 
-    this.setViewMode(this.options.defaultViewMode, this.options.locale);
+    this.setViewMode(this.options.defaultViewMode);
     this.selectedDate =
       this.options.initialDate instanceof Temporal.PlainDateTime
         ? this.options.initialDate
@@ -116,21 +116,35 @@ export class ResourceCalendar {
     this.eventClick = this.options.eventClick;
     this.buttons = { ...this.standardButtons, ...this.options.customButtons };
 
+    this.rows = new Map();
+
     this.updateCalendarData();
 
     // re-render calendar on window resize
-    const calendar = this;
-    let resizeTimeout;
-    window.addEventListener("resize", () => {
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(() => {
-        if (calendar.isRendered) {
-          calendar.render();
+    this._onResize = () => {
+      clearTimeout(this._resizeTimeout);
+      this._resizeTimeout = setTimeout(() => {
+        if (this.isRendered) {
+          this.render();
         }
       }, 250);
-    });
+    };
+    window.addEventListener("resize", this._onResize);
+  }
 
-    this.rows = new Map();
+  /**
+   * Detaches the calendar: removes it from the DOM and unregisters the
+   * global resize listener. Call this before discarding an instance so
+   * repeated creation does not leak listeners.
+   */
+  destroy() {
+    window.removeEventListener("resize", this._onResize);
+    clearTimeout(this._resizeTimeout);
+    if (this.container) {
+      this.container.innerHTML = "";
+      delete this.container._calendar;
+    }
+    this.isRendered = false;
   }
 
   rerender() {
@@ -197,7 +211,13 @@ export class ResourceCalendar {
    * update eventData variable before render()
    */
   updateEventData() {
-    this.eventData = this.fetchEventData();
+    const data = this.fetchEventData();
+    if (!Array.isArray(data)) {
+      console.warn(
+        "ResourceCalendar: fetchEventDataFunction should return an array of events.",
+      );
+    }
+    this.eventData = Array.isArray(data) ? data : [];
   }
 
   renderEvents() {
@@ -209,8 +229,8 @@ export class ResourceCalendar {
       return;
     }
 
-    for (const i in this.eventData) {
-      const event = Event.fromJSON(this, this.eventData[i]);
+    for (const data of this.eventData) {
+      const event = Event.fromJSON(this, data);
 
       if (event instanceof Event) {
         event.renderPartial();
@@ -336,24 +356,38 @@ export class ResourceCalendar {
       const toolbarPart = document.createElement("div");
       toolbarPart.classList.add("rc-toolbar-part");
 
-      let groups = value.split(" ");
-      groups = groups.map((word) => word.split(","));
+      const groups = value
+        .split(" ")
+        .filter((token) => token.length > 0)
+        .map((token) => token.split(",").filter((name) => name.length > 0));
 
       for (const group of groups) {
-        let groupEl;
-        if (group.length > 1) {
-          const buttonGroup = document.createElement("div");
-          buttonGroup.classList.add("rc-toolbar-part");
-          for (const button of group) {
-            buttonGroup.append(this.createButton(this.buttons[button]));
-          }
-          groupEl = buttonGroup;
-        } else if (group.length === 1) {
-          groupEl = this.createButton(this.buttons[group[0]]);
-        } else {
+        const buttons = group
+          .map((name) => {
+            const button = this.buttons[name];
+            if (!button) {
+              console.warn(
+                `ResourceCalendar: unknown toolbar button "${name}".`,
+              );
+            }
+            return button;
+          })
+          .filter(Boolean);
+
+        if (buttons.length === 0) {
           continue;
         }
-        toolbarPart.append(groupEl);
+
+        if (buttons.length > 1) {
+          const buttonGroup = document.createElement("div");
+          buttonGroup.classList.add("rc-toolbar-part");
+          for (const button of buttons) {
+            buttonGroup.append(this.createButton(button));
+          }
+          toolbarPart.append(buttonGroup);
+        } else {
+          toolbarPart.append(this.createButton(buttons[0]));
+        }
       }
 
       toolbar.append(toolbarPart);
@@ -418,7 +452,7 @@ export class ResourceCalendar {
         btn.setAttribute("title", button.text);
       }
       const icon = document.createElement("i");
-      icon.className = button.icon;
+      icon.className = button.iconClass;
       btn.append(icon);
     } else if (button.text) {
       btn.textContent = button.text;
@@ -504,6 +538,9 @@ export class ResourceCalendar {
   createBody() {
     const tbody = document.createElement("tbody");
 
+    // drop rows from a previous render so removed resources do not linger
+    this.rows.clear();
+
     this.resources.forEach((resource, resourceId) => {
       const resourceRow = document.createElement("tr");
 
@@ -512,14 +549,14 @@ export class ResourceCalendar {
       resourceTh.setAttribute("scope", "row");
       resourceTh.setAttribute("colspan", this.subdivision);
       resourceTh.style.width = "15vw";
-      resourceTh.innerHTML = `${resource} (${resourceId})`;
+      resourceTh.textContent = `${resource} (${resourceId})`;
       resourceRow.append(resourceTh);
 
       for (let i = 0; i < this.dates.length; i++) {
         for (let j = 0; j < this.subdivision; j++) {
           const resourceTd = document.createElement("td");
 
-          if (this.todayIndex && i === this.todayIndex) {
+          if (this.todayIndex !== null && i === this.todayIndex) {
             resourceTd.classList.add("rc-today-subtle");
           }
 
@@ -584,28 +621,45 @@ export class ResourceCalendar {
   }
 
   getNextDate(date) {
-    return date
-      .toZonedDateTime(Temporal.Now.timeZoneId())
-      .add({ milliseconds: this.subdivisionInterval })
-      .toPlainDateTime();
+    return date.add({ milliseconds: this.subdivisionInterval });
   }
 
+  /**
+   * pixel x-offset (measured from the calendar start) -> date.
+   * Uses wall-clock (PlainDateTime) math so it is unaffected by DST shifts.
+   */
   getDateFromDiffX(diffX) {
-    const epochMs =
-      this.startDate.toZonedDateTime(Temporal.Now.timeZoneId())
-        .epochMilliseconds +
-      (this.subdivisionInterval * diffX) / this.tdWidth;
-    return Temporal.Instant.fromEpochMilliseconds(epochMs)
-      .toZonedDateTimeISO(Temporal.Now.timeZoneId())
-      .toPlainDateTime();
+    const offsetMs = (this.subdivisionInterval * diffX) / this.tdWidth;
+    return this.startDate.add({ milliseconds: Math.round(offsetMs) });
   }
 
+  /**
+   * date -> pixel x-offset (measured from the calendar start).
+   * Uses wall-clock (PlainDateTime) math so it is unaffected by DST shifts.
+   */
   getDiffXFromDate(date) {
-    const diffMs =
-      date.toZonedDateTime(Temporal.Now.timeZoneId()).epochMilliseconds -
-      this.startDate.toZonedDateTime(Temporal.Now.timeZoneId())
-        .epochMilliseconds;
+    const diffMs = date
+      .since(this.startDate, { largestUnit: "hour" })
+      .total({ unit: "milliseconds" });
     return (diffMs / this.subdivisionInterval) * this.tdWidth;
+  }
+
+  /**
+   * Snaps a date to the subdivision grid. Grid lines sit at
+   * startDate + k * subdivisionInterval; mode is "floor", "ceil" or "round".
+   * @param {Temporal.PlainDateTime} date
+   * @param {"floor"|"ceil"|"round"} mode
+   * @returns {Temporal.PlainDateTime}
+   */
+  snapToGrid(date, mode = "round") {
+    const offsetMs = date
+      .since(this.startDate, { largestUnit: "hour" })
+      .total({ unit: "milliseconds" });
+    const round =
+      mode === "ceil" ? Math.ceil : mode === "floor" ? Math.floor : Math.round;
+    const snappedMs =
+      round(offsetMs / this.subdivisionInterval) * this.subdivisionInterval;
+    return this.startDate.add({ milliseconds: snappedMs });
   }
 
   getBoundedDiffXFromDate(date) {

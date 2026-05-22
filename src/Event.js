@@ -7,6 +7,8 @@ import iconArrowLeft from "./assets/chevron-left.svg?raw";
 import { Utils } from "./utils";
 
 export class Event {
+  static domIdCounter = 0;
+
   /**
    * checked factory function, returns null if invalid date was entered
    * @param {import("./index").ResourceCalendar} calendar
@@ -92,10 +94,7 @@ export class Event {
     const clickX = e.clientX;
     const tdOffset = firstTd.getBoundingClientRect().left;
     const diffX = clickX - tdOffset;
-    const snappedWidth = Utils.findSmallestEquidistantValue(
-      diffX,
-      calendar.tdWidth,
-    );
+    const snappedWidth = Utils.floorToMultiple(diffX, calendar.tdWidth);
 
     const startDate = calendar.getDateFromDiffX(snappedWidth);
     const endDate = calendar.getNextDate(startDate);
@@ -152,7 +151,6 @@ export class Event {
     const template = document.createElement("div");
     template.innerHTML = `
       <div
-          id="event-${this.eventId}"
           draggable="true"
           class="rc-event">
           ${this.additionalEventHTML}
@@ -163,6 +161,7 @@ export class Event {
     `;
     const element = template.firstElementChild;
 
+    element.id = `rc-event-${++Event.domIdCounter}`;
     element._eventId = this.eventId;
     element._event = this;
 
@@ -170,8 +169,8 @@ export class Event {
 
     let isResizing;
     let startX;
-    let startTime;
-    let endTime;
+    let startSnapshot;
+    let endSnapshot;
 
     const resizeHandleStart = element.querySelector(".handle-start");
     const resizeHandleEnd = element.querySelector(".handle-end");
@@ -240,12 +239,8 @@ export class Event {
       isResizing = true;
       resizeStart = isStart;
       startX = e.clientX;
-      startTime = event.startDate.toZonedDateTime(
-        Temporal.Now.timeZoneId(),
-      ).epochMilliseconds;
-      endTime = event.endDate.toZonedDateTime(
-        Temporal.Now.timeZoneId(),
-      ).epochMilliseconds;
+      startSnapshot = event.startDate;
+      endSnapshot = event.endDate;
       element.classList.add("resizing");
 
       e.preventDefault();
@@ -268,8 +263,8 @@ export class Event {
 
       event.resizeBySubdivisions(
         movedSubdivisions,
-        startTime,
-        endTime,
+        startSnapshot,
+        endSnapshot,
         resizeStart,
       );
     }
@@ -359,13 +354,8 @@ export class Event {
       }
       this.resourceId = newId;
     }
-    const tz = Temporal.Now.timeZoneId();
-    this.setStartTime(
-      this.startDate.toZonedDateTime(tz).epochMilliseconds + timeOffset,
-    );
-    this.setEndTime(
-      this.endDate.toZonedDateTime(tz).epochMilliseconds + timeOffset,
-    );
+    this.setStartDate(this.startDate.add({ milliseconds: timeOffset }));
+    this.setEndDate(this.endDate.add({ milliseconds: timeOffset }));
     this.renderUpdate();
     if (!sameRow) {
       Event.updateRow(previousRow);
@@ -374,58 +364,40 @@ export class Event {
   }
 
   /**
-   *
    * @param movedSubdivisions
-   * @param startTime
-   * @param endTime
+   * @param {Temporal.PlainDateTime} startSnapshot - start date when resize began
+   * @param {Temporal.PlainDateTime} endSnapshot - end date when resize began
    * @param resizeStart - if true, resize start date, if false, resize end date
    */
   resizeBySubdivisions(
     movedSubdivisions,
-    startTime,
-    endTime,
+    startSnapshot,
+    endSnapshot,
     resizeStart = true,
   ) {
     const timeOffset = this.calendar.subdivisionsToTime(movedSubdivisions);
-    const tz = Temporal.Now.timeZoneId();
+    const dayView = this.calendar.viewmode.name === "day";
+
     if (resizeStart) {
       // resize at Start
-      let newTime;
-      if (this.calendar.viewmode.name === "day") {
-        newTime = startTime;
-      } else {
-        const offsetMs =
-          this.startDate.toZonedDateTime(tz).offsetNanoseconds / 1e6;
-        newTime =
-          Utils.findBiggestEquidistantValue(
-            startTime,
-            this.calendar.subdivisionInterval,
-          ) - offsetMs;
-      }
-      newTime = newTime + timeOffset;
-      if (newTime >= this.endDate.toZonedDateTime(tz).epochMilliseconds) {
+      const base = dayView
+        ? startSnapshot
+        : this.calendar.snapToGrid(startSnapshot, "ceil");
+      const newStart = base.add({ milliseconds: timeOffset });
+      if (Temporal.PlainDateTime.compare(newStart, this.endDate) >= 0) {
         return;
       }
-      this.setStartTime(newTime);
+      this.setStartDate(newStart);
     } else {
       // resize at End
-      let newTime;
-      if (this.calendar.viewmode.name === "day") {
-        newTime = endTime;
-      } else {
-        const offsetMs =
-          this.endDate.toZonedDateTime(tz).offsetNanoseconds / 1e6;
-        newTime =
-          Utils.findBiggestEquidistantValue(
-            endTime,
-            this.calendar.subdivisionInterval,
-          ) - offsetMs;
-      }
-      newTime = newTime + timeOffset;
-      if (newTime <= this.startDate.toZonedDateTime(tz).epochMilliseconds) {
+      const base = dayView
+        ? endSnapshot
+        : this.calendar.snapToGrid(endSnapshot, "ceil");
+      const newEnd = base.add({ milliseconds: timeOffset });
+      if (Temporal.PlainDateTime.compare(newEnd, this.startDate) <= 0) {
         return;
       }
-      this.setEndTime(newTime);
+      this.setEndDate(newEnd);
     }
     this.renderUpdate();
     this.updateRow();
@@ -478,7 +450,6 @@ export class Event {
     let diffXEnd = this.calendar.getBoundedDiffXFromDate(endDate);
 
     this.element.style.left = diffXStart + "px";
-    this.element.style.right = diffXEnd + "px";
     this.element.style.width = diffXEnd - diffXStart + "px";
   }
 
@@ -600,18 +571,6 @@ export class Event {
     this.heightIndex = Math.max(0, this.heightIndex);
     this.element.style.top =
       this.heightIndex * this.element.offsetHeight + "px";
-  }
-
-  setStartTime(newEpochMs) {
-    this.startDate = Temporal.Instant.fromEpochMilliseconds(newEpochMs)
-      .toZonedDateTimeISO(Temporal.Now.timeZoneId())
-      .toPlainDateTime();
-  }
-
-  setEndTime(newEpochMs) {
-    this.endDate = Temporal.Instant.fromEpochMilliseconds(newEpochMs)
-      .toZonedDateTimeISO(Temporal.Now.timeZoneId())
-      .toPlainDateTime();
   }
 
   setStartDate(newDate) {

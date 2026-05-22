@@ -1,3 +1,5 @@
+import { Temporal } from "temporal-polyfill";
+
 /**
  * ViewMode determines table date layout, formatting etc.
  */

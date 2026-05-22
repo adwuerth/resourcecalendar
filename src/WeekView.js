@@ -1,3 +1,4 @@
+import { Temporal } from "temporal-polyfill";
 import { ViewMode } from "./ViewMode";
 import iconCalendarWeek from "./assets/calendar-week.svg?raw";
 import { Utils } from "./utils";
