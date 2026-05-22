@@ -6,21 +6,49 @@ import iconArrowLeft from "./assets/chevron-left.svg?raw";
 
 import { Utils } from "./utils";
 
+/**
+ * @typedef {import("./ResourceCalendar").ResourceCalendar} ResourceCalendar
+ */
+
+/**
+ * Raw event data as supplied by the host's `fetchEventDataFunction`.
+ * @typedef {object} EventJSON
+ * @property {string} start - ISO date-time string, e.g. `"2026-05-22T09:00"`
+ * @property {string} end - ISO date-time string
+ * @property {string|number} [resourceId] - id of the owning resource row
+ * @property {string|number|null} [id] - persistent event id
+ * @property {string} [title]
+ * @property {string} [backgroundColor] - CSS color
+ * @property {{ evtBeforeEvent?: string }} [extendedProps] - extra HTML hooks
+ * @property {boolean} [allDay]
+ */
+
+/**
+ * Wraps a single calendar event: owns its DOM element plus all
+ * drag/resize/click listeners. Construct via the static factories
+ * ({@link Event.new}, {@link Event.fromJSON}, {@link Event.fromClick}),
+ * not `new` directly.
+ */
 export class Event {
+  /**
+   * Monotonic counter used to give every event element a unique DOM id.
+   * @type {number}
+   */
   static domIdCounter = 0;
 
   /**
-   * checked factory function, returns null if invalid date was entered
-   * @param {import("./index").ResourceCalendar} calendar
-   * @param {Date} startDate
-   * @param {Date} endDate
-   * @param {string} resourceId
-   * @param {string|null} eventId
-   * @param {string} title
-   * @param {string} color
-   * @param {string} additionalEventHTML
-   * @param {boolean} allDay
-   * @return {Event|null}
+   * Checked factory function. Returns `null` when the date range or resource
+   * is invalid for the calendar's current view.
+   * @param {ResourceCalendar} calendar
+   * @param {Temporal.PlainDateTime} startDate
+   * @param {Temporal.PlainDateTime} endDate
+   * @param {string|null|undefined} resourceId
+   * @param {string|number|null} [eventId]
+   * @param {string} [title]
+   * @param {string} [color]
+   * @param {string} [additionalEventHTML]
+   * @param {boolean} [allDay]
+   * @returns {Event|null}
    */
   static new(
     calendar,
@@ -43,7 +71,7 @@ export class Event {
       calendar,
       startDate,
       endDate,
-      resourceId,
+      /** @type {string} */ (resourceId),
       eventId,
       title,
       color,
@@ -53,16 +81,16 @@ export class Event {
   }
 
   /**
-   *
+   * Prefer the static factories over calling this directly.
    * @param {ResourceCalendar} calendar
-   * @param {Date} startDate
-   * @param {Date} endDate
+   * @param {Temporal.PlainDateTime} startDate
+   * @param {Temporal.PlainDateTime} endDate
    * @param {string} resourceId
-   * @param {string|null} eventId
-   * @param {string} title
-   * @param {string} color
-   * @param {string} additionalEventHTML
-   * @param {boolean} allDay
+   * @param {string|number|null} [eventId]
+   * @param {string} [title]
+   * @param {string} [color]
+   * @param {string} [additionalEventHTML]
+   * @param {boolean} [allDay]
    */
   constructor(
     calendar,
@@ -75,22 +103,48 @@ export class Event {
     additionalEventHTML = "",
     allDay = false,
   ) {
+    /** @type {ResourceCalendar} */
     this.calendar = calendar;
+    /** @type {Temporal.PlainDateTime} */
     this.startDate = startDate;
+    /** @type {Temporal.PlainDateTime} */
     this.endDate = endDate;
+    /** @type {string} */
     this.resourceId = resourceId;
+    /** @type {string|number|null} */
     this.eventId = eventId;
+    /** @type {string} */
     this.title = title ?? "";
+    /** @type {string} */
     this.color = color ?? "";
+    /** @type {string} */
     this.additionalEventHTML = additionalEventHTML ?? "";
+    /** @type {boolean} */
     this.allDay = allDay ?? false;
 
-    this.heightIndex = 0; // heightIndex controls overlapping events
+    /** @type {number} controls vertical stacking of overlapping events */
+    this.heightIndex = 0;
+
+    /** @type {HTMLElement|null} the event's DOM node, created by initiate() */
+    this.element = null;
   }
 
+  /**
+   * Builds a new (unsaved) event from a click on a calendar cell.
+   * @param {ResourceCalendar} calendar
+   * @param {HTMLTableCellElement} startTd - the clicked `<td>`
+   * @param {MouseEvent} e
+   * @returns {Event|null}
+   */
   static fromClick(calendar, startTd, e) {
     const startTr = startTd.closest("tr");
+    if (!startTr) {
+      return null;
+    }
     const firstTd = startTr.querySelector("td");
+    if (!firstTd) {
+      return null;
+    }
     const clickX = e.clientX;
     const tdOffset = firstTd.getBoundingClientRect().left;
     const diffX = clickX - tdOffset;
@@ -117,6 +171,12 @@ export class Event {
     );
   }
 
+  /**
+   * Builds an event from host-supplied JSON.
+   * @param {ResourceCalendar} calendar
+   * @param {EventJSON} data
+   * @returns {Event|null}
+   */
   static fromJSON(calendar, data) {
     const startDate = Temporal.PlainDateTime.from(data.start);
     const endDate = Temporal.PlainDateTime.from(data.end);
@@ -141,7 +201,9 @@ export class Event {
   }
 
   /**
-   * initiate the event in the dom. note: this rerenders the event if it is already rendered
+   * Creates the event's DOM element and wires up its drag/resize/click
+   * listeners. Note: this re-creates the element if it already exists.
+   * @returns {void}
    */
   initiate() {
     if (this.element) {
@@ -159,7 +221,7 @@ export class Event {
           <div class="resize-handle handle-end"></div>
       </div>
     `;
-    const element = template.firstElementChild;
+    const element = /** @type {HTMLElement} */ (template.firstElementChild);
 
     element.id = `rc-event-${++Event.domIdCounter}`;
     element._eventId = this.eventId;
@@ -167,20 +229,36 @@ export class Event {
 
     const event = this;
 
-    let isResizing;
-    let startX;
+    /** @type {boolean} */
+    let isResizing = false;
+    /** @type {number} */
+    let startX = 0;
+    /** @type {Temporal.PlainDateTime} */
     let startSnapshot;
+    /** @type {Temporal.PlainDateTime} */
     let endSnapshot;
 
-    const resizeHandleStart = element.querySelector(".handle-start");
-    const resizeHandleEnd = element.querySelector(".handle-end");
+    const resizeHandleStart = /** @type {HTMLElement|null} */ (
+      element.querySelector(".handle-start")
+    );
+    const resizeHandleEnd = /** @type {HTMLElement|null} */ (
+      element.querySelector(".handle-end")
+    );
 
-    resizeHandleStart.addEventListener("mousedown", (e) =>
-      handleMouseDown(e, true, resizeHandleStart),
-    );
-    resizeHandleEnd.addEventListener("mousedown", (e) =>
-      handleMouseDown(e, false, resizeHandleEnd),
-    );
+    if (resizeHandleStart) {
+      resizeHandleStart.addEventListener("mousedown", (e) =>
+        handleMouseDown(
+          /** @type {MouseEvent} */ (e),
+          true,
+          resizeHandleStart,
+        ),
+      );
+    }
+    if (resizeHandleEnd) {
+      resizeHandleEnd.addEventListener("mousedown", (e) =>
+        handleMouseDown(/** @type {MouseEvent} */ (e), false, resizeHandleEnd),
+      );
+    }
 
     element.addEventListener("click", (e) => {
       e.stopPropagation();
@@ -194,17 +272,18 @@ export class Event {
       this.calendar.eventClick?.(this);
     });
 
-    let dragStartX;
+    /** @type {number} */
+    let dragStartX = 0;
 
     element.addEventListener("dragstart", (e) => {
       dragStartX = e.clientX;
       element._dropTarget = null;
-      e.dataTransfer.setData("text/plain", element.id);
+      e.dataTransfer?.setData("text/plain", element.id);
 
       setTimeout(() => {
         element.style.opacity = "0.5";
         element.style.cursor = "grabbing";
-        this.calendar.dropzones.forEach((dz) => (dz.style.zIndex = 1000));
+        this.calendar.dropzones.forEach((dz) => (dz.style.zIndex = "1000"));
       }, 0);
     });
 
@@ -215,7 +294,7 @@ export class Event {
 
       const dropTarget = element._dropTarget;
 
-      if (dropTarget !== null) {
+      if (dropTarget) {
         const draggedDistanceX = e.clientX - dragStartX;
         const newTr = dropTarget.closest("tr");
         const movedSubdivisions = Math.round(
@@ -225,13 +304,19 @@ export class Event {
         event.save();
       }
 
-      event.calendar.dropzones.forEach((dz) => (dz.style.zIndex = -1));
+      event.calendar.dropzones.forEach((dz) => (dz.style.zIndex = "-1"));
       delete element._dropTarget;
     });
 
     // Store references so they can be removed if needed
-    let resizeStart;
+    /** @type {boolean} */
+    let resizeStart = true;
 
+    /**
+     * @param {MouseEvent} e
+     * @param {boolean} isStart - true for the start handle, false for the end
+     * @param {HTMLElement} handle - the handle element being dragged
+     */
     function handleMouseDown(e, isStart, handle) {
       if (handle.classList.contains("overflow-handle")) {
         return;
@@ -252,6 +337,7 @@ export class Event {
       document.addEventListener("mouseup", onMouseUp);
     }
 
+    /** @param {MouseEvent} e */
     function onMouseMove(e) {
       e.preventDefault();
       e.stopPropagation();
@@ -269,6 +355,7 @@ export class Event {
       );
     }
 
+    /** @param {MouseEvent} e */
     function onMouseUp(e) {
       e.preventDefault();
       e.stopPropagation();
@@ -288,8 +375,9 @@ export class Event {
   }
 
   /**
-   * render the event in the dom. if render() was already called, just update dom attributes
-   * This does not update the rendering in the row, call event.updateRow() after
+   * Renders the event in the DOM (creating the element on first call).
+   * Does not restack the row — call {@link Event#updateRow} afterwards.
+   * @returns {void}
    */
   renderPartial() {
     if (!this.element) {
@@ -301,22 +389,42 @@ export class Event {
   }
 
   /**
-   * render the event in the dom. if render() was already called, just update dom attributes
+   * Renders the event and restacks its row.
+   * @returns {void}
    */
   render() {
     this.renderPartial();
     this.updateRow();
   }
 
+  /**
+   * Swaps resize handles for overflow arrows when the event extends beyond
+   * the visible date range, and back again when it does not.
+   * @returns {void}
+   */
   toggleOverflowHandles() {
+    const element = this.element;
+    if (!element) {
+      return;
+    }
+    /**
+     * @param {string} handleClass
+     * @param {string} overflowIcon
+     * @param {boolean} overflowCondition
+     */
     const manageHandle = (handleClass, overflowIcon, overflowCondition) => {
-      const handle = this.element.querySelector(`.${handleClass}`);
+      const handle = element.querySelector(`.${handleClass}`);
+      if (!handle) {
+        return;
+      }
       if (overflowCondition && handle.classList.contains("resize-handle")) {
         handle.classList.remove("resize-handle");
         handle.classList.add("overflow-handle");
         const iconTemplate = document.createElement("div");
         iconTemplate.innerHTML = overflowIcon;
-        handle.append(iconTemplate.firstElementChild);
+        if (iconTemplate.firstElementChild) {
+          handle.append(iconTemplate.firstElementChild);
+        }
       } else if (
         !overflowCondition &&
         handle.classList.contains("overflow-handle")
@@ -342,6 +450,13 @@ export class Event {
     );
   }
 
+  /**
+   * Moves the event by a whole number of grid columns, optionally onto a
+   * different resource row.
+   * @param {number} movedSubdivisions
+   * @param {HTMLTableRowElement|null} [newTr] - target resource row, if changed
+   * @returns {void}
+   */
   moveBySubdivisions(movedSubdivisions, newTr = null) {
     const timeOffset = this.calendar.subdivisionsToTime(movedSubdivisions);
     const previousRow = this.getRow();
@@ -349,10 +464,12 @@ export class Event {
     let sameRow = false;
     if (newTr !== null) {
       const newId = newTr.dataset.resource_id;
-      if (this.resourceId === newId) {
-        sameRow = true;
+      if (newId !== undefined) {
+        if (this.resourceId === newId) {
+          sameRow = true;
+        }
+        this.resourceId = newId;
       }
-      this.resourceId = newId;
     }
     this.setStartDate(this.startDate.add({ milliseconds: timeOffset }));
     this.setEndDate(this.endDate.add({ milliseconds: timeOffset }));
@@ -364,10 +481,12 @@ export class Event {
   }
 
   /**
-   * @param movedSubdivisions
+   * Resizes the event's start or end edge by a whole number of grid columns.
+   * @param {number} movedSubdivisions
    * @param {Temporal.PlainDateTime} startSnapshot - start date when resize began
    * @param {Temporal.PlainDateTime} endSnapshot - end date when resize began
-   * @param resizeStart - if true, resize start date, if false, resize end date
+   * @param {boolean} [resizeStart] - if true resize the start edge, else the end
+   * @returns {void}
    */
   resizeBySubdivisions(
     movedSubdivisions,
@@ -404,7 +523,8 @@ export class Event {
   }
 
   /**
-   * safely detach the event element from dom to move it
+   * Safely detaches the event element from the DOM so it can be re-placed.
+   * @returns {void}
    */
   detach() {
     if (!this.element) {
@@ -415,7 +535,8 @@ export class Event {
   }
 
   /**
-   * removes event element
+   * Removes the event element from the DOM and restacks its old row.
+   * @returns {void}
    */
   remove() {
     if (!this.element) {
@@ -431,6 +552,10 @@ export class Event {
     Event.updateRow(prevTr);
   }
 
+  /**
+   * Positions and sizes the event element horizontally to match its dates.
+   * @returns {void}
+   */
   updatePositionAndWidth() {
     let endDate = this.endDate;
     let startDate = this.startDate;
@@ -449,27 +574,54 @@ export class Event {
     let diffXStart = this.calendar.getBoundedDiffXFromDate(startDate);
     let diffXEnd = this.calendar.getBoundedDiffXFromDate(endDate);
 
+    if (!this.element) {
+      return;
+    }
     this.element.style.left = diffXStart + "px";
     this.element.style.width = diffXEnd - diffXStart + "px";
   }
 
+  /**
+   * Appends the event element into the cell of its current resource row.
+   * @returns {void}
+   */
   moveToCorrectResource() {
     const tr = this.getRow();
+    if (!tr || !this.element) {
+      return;
+    }
     const td = tr.querySelector("td");
+    if (!td) {
+      return;
+    }
 
     this.element.style.top = "0px";
 
     td.append(this.element);
   }
 
+  /**
+   * The table row for this event's resource.
+   * @returns {HTMLTableRowElement|undefined}
+   */
   getRow() {
     return this.calendar.rows.get(this.resourceId);
   }
 
+  /**
+   * Recomputes overlap stacking for this event's row.
+   * @returns {void}
+   */
   updateRow() {
     Event.updateRow(this.getRow());
   }
 
+  /**
+   * Recomputes vertical stacking of overlapping events in a row and resizes
+   * the row to fit them.
+   * @param {HTMLTableRowElement|null|undefined} tr
+   * @returns {void}
+   */
   static updateRow(tr) {
     if (!tr) {
       return;
@@ -480,23 +632,28 @@ export class Event {
       return;
     }
 
-    const eventElements = Array.from(td.querySelectorAll(".rc-event"));
+    const eventElements = /** @type {HTMLElement[]} */ (
+      Array.from(td.querySelectorAll(".rc-event"))
+    );
 
-    const allEvents = eventElements
-      .map((el) => el._event)
-      .filter(Boolean)
-      .sort((a, b) => {
-        const startCmp = Temporal.PlainDateTime.compare(
-          a.startDate,
-          b.startDate,
-        );
-        if (startCmp !== 0) return startCmp;
-        return Temporal.PlainDateTime.compare(a.endDate, b.endDate);
-      });
+    const allEvents = /** @type {Event[]} */ (
+      eventElements.map((el) => el._event).filter(Boolean)
+    );
+    allEvents.sort((a, b) => {
+      const startCmp = Temporal.PlainDateTime.compare(a.startDate, b.startDate);
+      if (startCmp !== 0) return startCmp;
+      return Temporal.PlainDateTime.compare(a.endDate, b.endDate);
+    });
 
+    /** @type {Event[]} */
     const processedEvents = [];
     let maxHeightIndex = 0;
 
+    /**
+     * @param {Event} eventA
+     * @param {Event} eventB
+     * @returns {boolean}
+     */
     const eventsOverlap = (eventA, eventB) => {
       return (
         Temporal.PlainDateTime.compare(eventA.startDate, eventB.endDate) < 0 &&
@@ -547,7 +704,8 @@ export class Event {
   }
 
   /**
-   * renders the event according to the object members
+   * Re-renders the event's geometry (handles, position, resource row).
+   * @returns {void}
    */
   renderUpdate() {
     this.toggleOverflowHandles();
@@ -557,7 +715,9 @@ export class Event {
   }
 
   /**
-   * this only gets called when the event is changed using the detail modal, not on resize/move
+   * Re-renders title and color. Only called when the event is edited via the
+   * detail modal, not on resize/move.
+   * @returns {void}
    */
   renderDetailUpdates() {
     this.updateTitle();
@@ -565,49 +725,99 @@ export class Event {
   }
 
   /**
-   * shift element to the heightIndex to make place for overlapping events
+   * Shifts the element down to its `heightIndex` to make room for
+   * overlapping events.
+   * @returns {void}
    */
   shiftToIndex() {
+    if (!this.element) {
+      return;
+    }
     this.heightIndex = Math.max(0, this.heightIndex);
     this.element.style.top =
       this.heightIndex * this.element.offsetHeight + "px";
   }
 
+  /**
+   * @param {Temporal.PlainDateTime} newDate
+   * @returns {void}
+   */
   setStartDate(newDate) {
     this.startDate = newDate;
   }
 
+  /**
+   * @param {Temporal.PlainDateTime} newDate
+   * @returns {void}
+   */
   setEndDate(newDate) {
     this.endDate = newDate;
   }
 
+  /**
+   * @param {string} newTitle
+   * @returns {void}
+   */
   setTitle(newTitle) {
     this.title = newTitle;
   }
 
+  /**
+   * @param {string|null} newColor - falls back to the calendar's default color
+   * @returns {void}
+   */
   setColor(newColor) {
     this.color = newColor ?? this.calendar.options.defaultEventColor;
   }
 
+  /**
+   * @param {boolean} allDay
+   * @returns {void}
+   */
   setAllDay(allDay) {
     this.allDay = allDay ?? false;
   }
 
+  /**
+   * Writes the title onto the element (text and `title` attribute).
+   * @returns {void}
+   */
   updateTitle() {
+    if (!this.element) {
+      return;
+    }
     this.element.setAttribute("title", this.title);
-    this.element.querySelector("span").textContent = this.title;
+    const span = this.element.querySelector("span");
+    if (span) {
+      span.textContent = this.title;
+    }
   }
 
+  /**
+   * Writes the color (background, border, contrasting text) onto the element.
+   * @returns {void}
+   */
   updateColor() {
+    if (!this.element) {
+      return;
+    }
     this.element.style.backgroundColor = this.color;
     this.element.style.borderColor = Utils.shadeColor(this.color, 1.1);
     this.element.style.color = Utils.getContrastYIQ(this.color);
   }
 
+  /**
+   * Hands the event to the host's `saveEventFunction`, if one was provided.
+   * @returns {void}
+   */
   save() {
     this.calendar.saveEventFunction?.(this);
   }
 
+  /**
+   * Hands the event to the host's `deleteEventFunction`, if one was provided.
+   * @returns {void}
+   */
   delete() {
     this.calendar.deleteEventFunction?.(this);
   }

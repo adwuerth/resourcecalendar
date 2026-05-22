@@ -2,16 +2,32 @@ import { Temporal } from "temporal-polyfill";
 import { ViewMode } from "./ViewMode";
 import iconCalendarMonth from "./assets/calendar.svg?raw";
 
+/**
+ * @typedef {import("./ResourceCalendar").ResourceCalendarOptions} ResourceCalendarOptions
+ */
+
+/**
+ * Month view: one column per day of a single calendar month.
+ */
 export class MonthView extends ViewMode {
+  /** @type {string} */
   static name = "month";
+  /** @type {{ iconHtml: string }} */
   static buttonAttributes = {
     iconHtml: iconCalendarMonth,
   };
 
+  /**
+   * @param {ResourceCalendarOptions} options
+   */
   constructor(options) {
     super(MonthView.name, options);
   }
 
+  /**
+   * @param {Temporal.PlainDateTime} date
+   * @returns {string}
+   */
   formatDate(date) {
     let formattedDate = date.toLocaleString(this.locale, {
       weekday: "short",
@@ -35,11 +51,11 @@ export class MonthView extends ViewMode {
   }
 
   /**
-   * Gets an array of Temporal.PlainDateTime objects for the month containing the given date
+   * Gets the dates for every day of the month containing the given date.
    * @param {Temporal.PlainDateTime} date
-   * @returns {Array<Temporal.PlainDateTime>}
+   * @returns {Temporal.PlainDateTime[]}
    */
-  getDates(date = Temporal.Now.plainDateISO()) {
+  getDates(date = Temporal.Now.plainDateTimeISO()) {
     const dates = [];
     let current = Temporal.PlainDate.from({
       year: date.year,
@@ -55,6 +71,10 @@ export class MonthView extends ViewMode {
     return dates;
   }
 
+  /**
+   * @param {Temporal.PlainDateTime} date
+   * @returns {Temporal.PlainDateTime}
+   */
   getStartDate(date) {
     return Temporal.PlainDate.from({
       year: date.year,
@@ -63,6 +83,12 @@ export class MonthView extends ViewMode {
     }).toPlainDateTime(Temporal.PlainTime.from("00:00:00"));
   }
 
+  /**
+   * Whether both dates fall on the same calendar day.
+   * @param {Temporal.PlainDateTime} date1
+   * @param {Temporal.PlainDateTime} date2
+   * @returns {boolean}
+   */
   equalsUnit(date1, date2) {
     if (
       !(date1 instanceof Temporal.PlainDateTime) ||
@@ -78,6 +104,10 @@ export class MonthView extends ViewMode {
     );
   }
 
+  /**
+   * @param {Temporal.PlainDateTime} date
+   * @returns {string}
+   */
   header(date) {
     return date.toLocaleString(this.locale, {
       month: "long",

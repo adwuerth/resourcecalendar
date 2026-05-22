@@ -3,17 +3,35 @@ import { ViewMode } from "./ViewMode";
 import iconCalendarWeek from "./assets/calendar-week.svg?raw";
 import { Utils } from "./utils";
 
+/**
+ * @typedef {import("./ResourceCalendar").ResourceCalendarOptions} ResourceCalendarOptions
+ */
+
+/**
+ * Week view: one column per day, Monday to Sunday (or Friday when weekends
+ * are disabled).
+ */
 export class WeekView extends ViewMode {
+  /** @type {string} */
   static name = "week";
+  /** @type {{ iconHtml: string }} */
   static buttonAttributes = {
     iconHtml: iconCalendarWeek,
   };
 
+  /**
+   * @param {ResourceCalendarOptions} options
+   */
   constructor(options) {
     super(WeekView.name, options);
   }
 
+  /**
+   * @param {Temporal.PlainDateTime} date
+   * @returns {string}
+   */
   formatDate(date) {
+    /** @type {Intl.DateTimeFormatOptions} */
     const options = {
       weekday: "short",
       month: "long",
@@ -34,12 +52,12 @@ export class WeekView extends ViewMode {
   }
 
   /**
-   * Gets an array of Temporal.PlainDateTime objects for the week containing the given date,
-   * starting from Monday and ending on Sunday.
+   * Gets the dates for the week containing the given date, starting from
+   * Monday and ending on Sunday (or Friday when weekends are disabled).
    * @param {Temporal.PlainDateTime} date
-   * @returns {Array<Temporal.PlainDateTime>}
+   * @returns {Temporal.PlainDateTime[]}
    */
-  getDates(date = Temporal.Now.plainDateISO()) {
+  getDates(date = Temporal.Now.plainDateTimeISO()) {
     const monday = this.getStartDate(date);
 
     const weekDates = [];
@@ -52,6 +70,10 @@ export class WeekView extends ViewMode {
     return weekDates;
   }
 
+  /**
+   * @param {Temporal.PlainDateTime} date
+   * @returns {Temporal.PlainDateTime}
+   */
   getStartDate(date) {
     // Temporal.dayOfWeek: 1=Monday ... 7=Sunday
     const daysToMonday = -(date.dayOfWeek - 1);
@@ -62,6 +84,10 @@ export class WeekView extends ViewMode {
       .toPlainDateTime(Temporal.PlainTime.from("00:00:00"));
   }
 
+  /**
+   * @param {Temporal.PlainDateTime} date
+   * @returns {Temporal.PlainDateTime}
+   */
   getEndDate(date) {
     let endDate = super.getEndDate(date);
     if (!this.weekends) {
@@ -70,6 +96,12 @@ export class WeekView extends ViewMode {
     return endDate;
   }
 
+  /**
+   * Whether both dates fall on the same calendar day.
+   * @param {Temporal.PlainDateTime} date1
+   * @param {Temporal.PlainDateTime} date2
+   * @returns {boolean}
+   */
   equalsUnit(date1, date2) {
     if (
       !(date1 instanceof Temporal.PlainDateTime) ||
@@ -85,6 +117,10 @@ export class WeekView extends ViewMode {
     );
   }
 
+  /**
+   * @param {Temporal.PlainDateTime} date
+   * @returns {string}
+   */
   header(date) {
     const startDate = this.getStartDate(date);
     const endDate = this.getEndDate(date);

@@ -2,16 +2,32 @@ import { Temporal } from "temporal-polyfill";
 import { ViewMode } from "./ViewMode";
 import iconCalendarDay from "./assets/calendar-day.svg?raw";
 
+/**
+ * @typedef {import("./ResourceCalendar").ResourceCalendarOptions} ResourceCalendarOptions
+ */
+
+/**
+ * Day view: one column per hour of a single day.
+ */
 export class DayView extends ViewMode {
+  /** @type {string} */
   static name = "day";
+  /** @type {{ iconHtml: string }} */
   static buttonAttributes = {
     iconHtml: iconCalendarDay,
   };
 
+  /**
+   * @param {ResourceCalendarOptions} options
+   */
   constructor(options) {
     super(DayView.name, options);
   }
 
+  /**
+   * @param {Temporal.PlainDateTime} date
+   * @returns {string}
+   */
   formatDate(date) {
     return date.toLocaleString(this.locale, {
       hour: "2-digit",
@@ -30,12 +46,12 @@ export class DayView extends ViewMode {
   }
 
   /**
-   * Gets an array of 24 Date objects representing each hour of the day for the given date.
-   * Each Date object will be set to the start of that hour (e.g., 00:00, 01:00, ..., 23:00).
-   * @param {Date} date
-   * @returns {Array<Date>}
+   * Gets an array of 24 dates representing each hour of the day for the given
+   * date. Each entry is set to the start of that hour (00:00, 01:00, ...).
+   * @param {Temporal.PlainDateTime} date
+   * @returns {Temporal.PlainDateTime[]}
    */
-  getDates(date = Temporal.Now.plainDateISO()) {
+  getDates(date = Temporal.Now.plainDateTimeISO()) {
     const hours = [];
     for (let i = 0; i < 24; i++) {
       hours.push(
@@ -51,6 +67,10 @@ export class DayView extends ViewMode {
     return hours;
   }
 
+  /**
+   * @param {Temporal.PlainDateTime} date
+   * @returns {Temporal.PlainDateTime}
+   */
   getStartDate(date) {
     return Temporal.PlainDate.from({
       year: date.year,
@@ -59,6 +79,12 @@ export class DayView extends ViewMode {
     }).toPlainDateTime(Temporal.PlainTime.from("00:00:00"));
   }
 
+  /**
+   * Whether both dates fall in the same hour of the same day.
+   * @param {Temporal.PlainDateTime} date1
+   * @param {Temporal.PlainDateTime} date2
+   * @returns {boolean}
+   */
   equalsUnit(date1, date2) {
     if (
       !(date1 instanceof Temporal.PlainDateTime) ||
@@ -75,6 +101,10 @@ export class DayView extends ViewMode {
     );
   }
 
+  /**
+   * @param {Temporal.PlainDateTime} date
+   * @returns {string}
+   */
   header(date) {
     return date.toLocaleString(this.locale);
   }
