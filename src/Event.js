@@ -247,11 +247,7 @@ export class Event {
 
     if (resizeHandleStart) {
       resizeHandleStart.addEventListener("mousedown", (e) =>
-        handleMouseDown(
-          /** @type {MouseEvent} */ (e),
-          true,
-          resizeHandleStart,
-        ),
+        handleMouseDown(/** @type {MouseEvent} */ (e), true, resizeHandleStart),
       );
     }
     if (resizeHandleEnd) {
