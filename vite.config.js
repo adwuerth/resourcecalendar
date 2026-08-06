@@ -8,7 +8,7 @@ export default defineConfig(({ mode }) => {
     build: {
       emptyOutDir: !umd,
       lib: {
-        entry: resolve(__dirname, "src/index.js"),
+        entry: resolve(__dirname, "src/index.ts"),
         name: "ResourceCalendar",
         fileName: () =>
           umd ? "resourcecalendar.umd.cjs" : "resourcecalendar.js",

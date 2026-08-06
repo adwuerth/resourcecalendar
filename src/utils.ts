@@ -7,11 +7,11 @@ import { Temporal } from "temporal-polyfill";
 export const Utils = {
   /**
    * Calculates the absolute time difference between two dates in milliseconds.
-   * @param {Temporal.PlainDateTime} date1
-   * @param {Temporal.PlainDateTime} date2
-   * @returns {number}
    */
-  calculateIntervalMilliseconds(date1, date2) {
+  calculateIntervalMilliseconds(
+    date1: Temporal.PlainDateTime,
+    date2: Temporal.PlainDateTime,
+  ): number {
     return Math.abs(
       date1.since(date2).total({ unit: "milliseconds", relativeTo: date1 }),
     );
@@ -19,10 +19,8 @@ export const Utils = {
 
   /**
    * Calculates the ISO week number for a given date.
-   * @param {Temporal.PlainDate} d
-   * @returns {number}
    */
-  getWeekNumber(d) {
+  getWeekNumber(d: Temporal.PlainDate): number {
     const thursday = d.add({ days: 4 - (d.dayOfWeek === 7 ? 7 : d.dayOfWeek) });
     const yearStart = Temporal.PlainDate.from({
       year: thursday.year,
@@ -42,10 +40,8 @@ export const Utils = {
    * Parses a hex color string into an rgb number triplet. Accepts `#rgb` /
    * `#rrggbb` (with or without leading `#`); returns black for anything it
    * cannot parse.
-   * @param {string} color
-   * @returns {[number, number, number]}
    */
-  getRGB(color) {
+  getRGB(color: string): [number, number, number] {
     let hex = color.startsWith("#") ? color.substring(1) : color;
     if (hex.length === 3) {
       hex = hex
@@ -64,10 +60,8 @@ export const Utils = {
 
   /**
    * Picks a readable (black or white) font color for a background color.
-   * @param {string} color
-   * @returns {"black"|"white"}
    */
-  getContrastYIQ(color) {
+  getContrastYIQ(color: string): "black" | "white" {
     const [r, g, b] = this.getRGB(color);
     const yiq = (r * 299 + g * 587 + b * 114) / 1000;
     return yiq >= 128 ? "black" : "white";
@@ -75,11 +69,8 @@ export const Utils = {
 
   /**
    * Darkens/lightens a color by the specified amount -> <1.0 lighten; >1.0 darken
-   * @param {string} color
-   * @param {number} decimal
-   * @returns {string}
    */
-  shadeColor(color, decimal) {
+  shadeColor(color: string, decimal: number): string {
     return `#${this.getRGB(color)
       .map((n) =>
         Math.min(Math.round(n / decimal), 255)
@@ -91,11 +82,8 @@ export const Utils = {
 
   /**
    * Largest multiple of interval that is less than or equal to target.
-   * @param {number} target
-   * @param {number} interval
-   * @returns {number}
    */
-  floorToMultiple(target, interval) {
+  floorToMultiple(target: number, interval: number): number {
     if (interval === 0) {
       return 0;
     }
@@ -105,11 +93,8 @@ export const Utils = {
 
   /**
    * Smallest multiple of interval that is greater than or equal to target.
-   * @param {number} target
-   * @param {number} interval
-   * @returns {number}
    */
-  ceilToMultiple(target, interval) {
+  ceilToMultiple(target: number, interval: number): number {
     if (interval === 0) {
       return 0;
     }
@@ -119,10 +104,8 @@ export const Utils = {
 
   /**
    * Converts a date to the `YYYY-MM-DD` string expected by `<input type="date">`.
-   * @param {Temporal.PlainDateTime} date
-   * @returns {string}
    */
-  formatDateForInput(date) {
+  formatDateForInput(date: Temporal.PlainDateTime): string {
     return date.toPlainDate().toString();
   },
 };

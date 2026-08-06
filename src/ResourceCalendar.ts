@@ -1,3 +1,6 @@
+// The only CSS import in the library; it is what makes Vite emit
+// dist/resourcecalendar.css. It survives into ResourceCalendar.d.ts, which the
+// build resolves with an empty dist/style.css.d.ts shim.
 import "./style.css";
 import { Temporal } from "temporal-polyfill";
 
@@ -7,64 +10,83 @@ import iconArrowLeft from "./assets/chevron-left.svg?raw";
 import { Utils } from "./utils";
 
 import { ViewFactory } from "./ViewFactory";
-import { Striping } from "./Striping";
 
 import { Event } from "./Event";
+import type { EventJSON } from "./Event";
+import type { ViewMode } from "./ViewMode";
 
 /**
- * @typedef {import("./Striping").StripingMode} StripingMode
- * @typedef {import("./Event").EventJSON} EventJSON
- * @typedef {import("./ViewMode").ViewMode} ViewMode
+ * Row/column striping of the calendar grid.
  */
+export type StripingMode = "none" | "columns" | "rows";
 
 /**
  * A toolbar button definition. Either provides a `creationFunction` that
  * builds the whole element, or an `onClick` handler plus an icon/label.
- * @typedef {object} ButtonDefinition
- * @property {() => HTMLElement} [creationFunction]
- * @property {(event: MouseEvent) => void} [onClick]
- * @property {string} [iconHtml] - raw SVG/HTML string used as the button icon
- * @property {string} [iconClass] - CSS class set on an inner `<i>` element
- * @property {string} [text] - button label / tooltip text
  */
+export interface ButtonDefinition {
+  creationFunction?: () => HTMLElement;
+  onClick?: (event: MouseEvent) => void;
+  /** raw SVG/HTML string used as the button icon */
+  iconHtml?: string;
+  /** CSS class set on an inner `<i>` element */
+  iconClass?: string;
+  /** button label / tooltip text */
+  text?: string;
+}
 
 /**
  * Constructor options for {@link ResourceCalendar}. User-supplied options are
  * shallow-merged over {@link ResourceCalendar.DEFAULT_OPTIONS}.
- * @typedef {object} ResourceCalendarOptions
- * @property {string} containerId - id of the host element to render into
- * @property {string} defaultEventColor - CSS color for events without one
- * @property {Temporal.PlainDateTime|string} initialDate - date the calendar opens on
- * @property {boolean} nowIndicator - highlight the column for the current date/time
- * @property {boolean} selectable
- * @property {boolean} editable
- * @property {StripingMode} striping - row/column striping mode
- * @property {((event: Event) => void)|null} eventDrop
- * @property {((event: Event) => void)|null} eventClick - called when an event is clicked
- * @property {(event: Event|null) => void} dateClick - called when an empty cell is clicked
- * @property {((event: Event) => void)|null} saveEventFunction - persists a moved/resized event
- * @property {((event: Event) => void)|null} deleteEventFunction
- * @property {string} defaultViewMode - one of the registered ViewFactory modes
- * @property {string} locale - BCP-47 locale used for date formatting
- * @property {boolean} weekends - show Saturday/Sunday in week view
- * @property {string} minTime
- * @property {string} maxTime
- * @property {Record<string, number>} subdivision - columns per date, keyed by view mode name
- * @property {Record<string, string>} toolbar - toolbar layout DSL, keyed by region
- * @property {(calendar: ResourceCalendar) => Record<string, string>} fetchResourcesFunction
- * @property {(calendar: ResourceCalendar) => EventJSON[]} fetchEventDataFunction
- * @property {Record<string, ButtonDefinition>} customButtons
- * @property {Record<string, unknown>} customOptions - opaque store for calendar extensions
- * @property {string} [tabId]
  */
+export interface ResourceCalendarOptions {
+  /** id of the host element to render into */
+  containerId: string;
+  /** CSS color for events without one */
+  defaultEventColor: string;
+  /** date the calendar opens on */
+  initialDate: Temporal.PlainDateTime | string;
+  /** highlight the column for the current date/time */
+  nowIndicator: boolean;
+  selectable: boolean;
+  editable: boolean;
+  /** row/column striping mode */
+  striping: StripingMode;
+  eventDrop: ((event: Event) => void) | null;
+  /** called when an event is clicked */
+  eventClick: ((event: Event) => void) | null;
+  /** called when an empty cell is clicked */
+  dateClick: (event: Event | null) => void;
+  /** persists a moved/resized event */
+  saveEventFunction: ((event: Event) => void) | null;
+  deleteEventFunction: ((event: Event) => void) | null;
+  /** one of the registered ViewFactory modes */
+  defaultViewMode: string;
+  /** BCP-47 locale used for date formatting */
+  locale: string;
+  /** show Saturday/Sunday in week view */
+  weekends: boolean;
+  minTime: string;
+  maxTime: string;
+  /** columns per date, keyed by view mode name */
+  subdivision: Record<string, number>;
+  /** toolbar layout DSL, keyed by region */
+  toolbar: Record<string, string>;
+  fetchResourcesFunction: (
+    calendar: ResourceCalendar,
+  ) => Record<string, string>;
+  fetchEventDataFunction: (calendar: ResourceCalendar) => EventJSON[];
+  customButtons: Record<string, ButtonDefinition>;
+  /** opaque store for calendar extensions */
+  customOptions: Record<string, unknown>;
+  tabId?: string;
+}
 
 /**
  * The `<td>` a delegated DOM event happened in, or `null` when it happened
  * outside the grid (toolbar, header, table padding).
- * @param {globalThis.Event} e
- * @returns {HTMLTableCellElement|null}
  */
-function tdOf(e) {
+function tdOf(e: globalThis.Event): HTMLTableCellElement | null {
   return e.target instanceof Element ? e.target.closest("td") : null;
 }
 
@@ -73,8 +95,7 @@ function tdOf(e) {
  * `updateCalendarData()` -> `render()` -> `renderEvents()`.
  */
 export class ResourceCalendar {
-  /** @type {ResourceCalendarOptions} */
-  static DEFAULT_OPTIONS = {
+  static DEFAULT_OPTIONS: ResourceCalendarOptions = {
     // calendar settings
     containerId: "container-resourcecalendar",
     defaultEventColor: "#5e5e5e",
@@ -82,7 +103,7 @@ export class ResourceCalendar {
     nowIndicator: true,
     selectable: true, // todo
     editable: true, // todo
-    striping: Striping.DEFAULT,
+    striping: "none",
 
     eventDrop: null,
     eventClick: null,
@@ -124,8 +145,7 @@ export class ResourceCalendar {
     customOptions: {},
   };
 
-  /** @type {Record<string, ButtonDefinition>} */
-  standardButtons = {
+  standardButtons: Record<string, ButtonDefinition> = {
     viewMode: {
       creationFunction: this.createViewModeButtons.bind(this),
     },
@@ -145,75 +165,65 @@ export class ResourceCalendar {
     },
   };
 
-  /** @type {ResourceCalendarOptions} merged user + default options */
-  options;
-  /** @type {HTMLElement} the host element the calendar renders into */
-  container;
-  /** @type {ViewMode} the active view mode */
-  viewmode;
-  /** @type {Temporal.PlainDateTime} the currently selected date */
-  selectedDate;
-  /** @type {string|undefined} */
-  tabId;
-  /** @type {Map<string, string>} resource id -> label */
-  resources;
-  /** @type {Map<string, HTMLTableRowElement>} resource id -> table row */
-  rows;
-  /** @type {EventJSON[]} raw event data as last returned by the host */
-  eventData;
-  /**
-   * @type {Set<Event>}
-   */
-  events = new Set();
-  /** @type {Temporal.PlainDateTime[]} the visible column dates */
-  dates;
-  /** @type {Temporal.PlainDateTime} start of the visible range */
-  startDate;
-  /** @type {Temporal.PlainDateTime} end of the visible range */
-  endDate;
-  /** @type {number} columns per date */
+  /** merged user + default options */
+  options: ResourceCalendarOptions;
+  /** the host element the calendar renders into */
+  container: HTMLElement;
+  /** the active view mode */
+  viewmode: ViewMode;
+  /** the currently selected date */
+  selectedDate: Temporal.PlainDateTime;
+  tabId: string | undefined;
+  /** resource id -> label */
+  resources: Map<string, string>;
+  /** resource id -> table row */
+  rows: Map<string, HTMLTableRowElement>;
+  /** raw event data as last returned by the host */
+  eventData: EventJSON[];
+  /** the live events, the source of truth while the calendar runs */
+  events = new Set<Event>();
+  /** the visible column dates */
+  dates: Temporal.PlainDateTime[];
+  /** start of the visible range */
+  startDate: Temporal.PlainDateTime;
+  /** end of the visible range */
+  endDate: Temporal.PlainDateTime;
+  /** columns per date */
   subdivision = 1;
-  /** @type {number} milliseconds represented by one column */
-  subdivisionInterval;
-  /** @type {number} measured width of one table cell, in pixels */
+  /** milliseconds represented by one column */
+  subdivisionInterval: number;
+  /** measured width of one table cell, in pixels */
   tdWidth = 0;
-  /** @type {HTMLElement} the rendered calendar root element */
-  calendarEl;
-  /** @type {number|null} index of today's column, or null */
-  todayIndex = null;
-  /** @type {boolean} whether the calendar is currently rendered */
+  /** the rendered calendar root element */
+  calendarEl: HTMLElement;
+  /** index of today's column, or null */
+  todayIndex: number | null = null;
+  /** whether the calendar is currently rendered */
   isRendered = false;
-  /** @type {Record<string, ButtonDefinition>} resolved toolbar buttons */
-  buttons;
-  /** @type {ResizeObserver|undefined} watches the container for width changes */
-  _resizeObserver;
+  /** resolved toolbar buttons */
+  buttons: Record<string, ButtonDefinition>;
+  /** watches the container for width changes */
+  _resizeObserver: ResizeObserver | undefined;
   /**
    * The event currently being dragged and the pointer x it was grabbed at.
    * Set on dragstart, cleared on dragend.
-   * @type {{ event: Event, startX: number }|null}
    */
-  _drag = null;
-  /** @type {HTMLTableCellElement[]} cells currently carrying the drop highlight */
-  _highlighted = [];
-  /** @type {ResourceCalendarOptions["fetchResourcesFunction"]} */
-  fetchResourcesFunction;
-  /** @type {ResourceCalendarOptions["fetchEventDataFunction"]} */
-  fetchEventDataFunction;
-  /** @type {ResourceCalendarOptions["saveEventFunction"]} */
-  saveEventFunction;
-  /** @type {ResourceCalendarOptions["deleteEventFunction"]} */
-  deleteEventFunction;
-  /** @type {ResourceCalendarOptions["dateClick"]} */
-  dateClick;
-  /** @type {ResourceCalendarOptions["eventClick"]} */
-  eventClick;
+  _drag: { event: Event; startX: number } | null = null;
+  /** cells currently carrying the drop highlight */
+  _highlighted: HTMLTableCellElement[] = [];
+  fetchResourcesFunction: ResourceCalendarOptions["fetchResourcesFunction"];
+  fetchEventDataFunction: ResourceCalendarOptions["fetchEventDataFunction"];
+  saveEventFunction: ResourceCalendarOptions["saveEventFunction"];
+  deleteEventFunction: ResourceCalendarOptions["deleteEventFunction"];
+  dateClick: ResourceCalendarOptions["dateClick"];
+  eventClick: ResourceCalendarOptions["eventClick"];
 
   /**
    * Creates an instance of ResourceCalendar.
-   * @param {Partial<ResourceCalendarOptions>} [options] - overrides merged
-   *   over {@link ResourceCalendar.DEFAULT_OPTIONS}
+   * @param options - overrides merged over
+   *   {@link ResourceCalendar.DEFAULT_OPTIONS}
    */
-  constructor(options = {}) {
+  constructor(options: Partial<ResourceCalendarOptions> = {}) {
     this.options = { ...ResourceCalendar.DEFAULT_OPTIONS, ...options };
 
     const container = document.getElementById(this.options.containerId);
@@ -257,9 +267,8 @@ export class ResourceCalendar {
    * Detaches the calendar: removes it from the DOM and unregisters the
    * global resize listener. Call this before discarding an instance so
    * repeated creation does not leak listeners.
-   * @returns {void}
    */
-  destroy() {
+  destroy(): void {
     this._resizeObserver?.disconnect();
     if (this.container) {
       this.container.innerHTML = "";
@@ -270,54 +279,45 @@ export class ResourceCalendar {
 
   /**
    * Re-fetches data and re-renders the calendar.
-   * @returns {void}
    */
-  rerender() {
+  rerender(): void {
     this.updateCalendarData();
     this.render();
   }
 
   /**
    * Re-fetches resources and recomputes the visible date range.
-   * @returns {void}
    */
-  updateCalendarData() {
+  updateCalendarData(): void {
     this.updateResources();
     this.updateDates();
   }
 
   /**
    * Re-fetches the resource rows from the host.
-   * @returns {void}
    */
-  updateResources() {
+  updateResources(): void {
     this.resources = new Map(Object.entries(this.fetchResources()));
   }
 
   /**
    * Whether the given resource id exists in the current resource set.
-   * @param {string|null|undefined} resourceId
-   * @returns {boolean}
    */
-  verifyResource(resourceId) {
+  verifyResource(resourceId: string | null | undefined): boolean {
     return !!resourceId && this.resources.has(resourceId);
   }
 
   /**
    * Switches the active view mode (day/week/month).
-   * @param {string} viewmode
-   * @returns {void}
    */
-  setViewMode(viewmode) {
+  setViewMode(viewmode: string): void {
     this.viewmode = ViewFactory.fromString(viewmode, this.options);
   }
 
   /**
    * Selects a new date, recomputes the range and re-renders.
-   * @param {Temporal.PlainDateTime} newDate
-   * @returns {void}
    */
-  selectDate(newDate) {
+  selectDate(newDate: Temporal.PlainDateTime): void {
     this.selectedDate = newDate;
     this.updateDates();
     this.render();
@@ -326,9 +326,8 @@ export class ResourceCalendar {
   /**
    * Recomputes the visible date range, column dates and subdivision interval
    * for the current view mode, then refreshes event data.
-   * @returns {void}
    */
-  updateDates() {
+  updateDates(): void {
     this.subdivision = this.viewmode.subdivision ?? 1;
 
     this.dates = this.viewmode.getDates(this.selectedDate);
@@ -346,33 +345,30 @@ export class ResourceCalendar {
 
   /**
    * Fetches the resource rows via the host's `fetchResourcesFunction`.
-   * @returns {Record<string, string>} resource id -> label
+   * @returns resource id -> label
    */
-  fetchResources() {
+  fetchResources(): Record<string, string> {
     return this.fetchResourcesFunction(this);
   }
 
   /**
    * Fetches event data via the host's `fetchEventDataFunction`.
-   * @returns {EventJSON[]}
    */
-  fetchEventData() {
+  fetchEventData(): EventJSON[] {
     return this.fetchEventDataFunction(this);
   }
 
   /**
    * Re-fetches the event data from the host and rebuilds the event set from
    * it.
-   * @returns {void}
    */
-  updateEventData() {
+  updateEventData(): void {
     const data = this.fetchEventData();
     if (!Array.isArray(data)) {
       console.warn(
         "ResourceCalendar: fetchEventDataFunction should return an array of events.",
       );
     }
-    /** @type {EventJSON[]} */
     this.eventData = Array.isArray(data) ? data : [];
 
     this.events.forEach((event) => event.detach());
@@ -387,9 +383,8 @@ export class ResourceCalendar {
    * Places every live event and restacks all rows. Reuses the existing
    * {@link Event} instances (and their elements) rather than rebuilding them
    * from the raw data, so a re-render keeps whatever the user changed.
-   * @returns {void}
    */
-  renderEvents() {
+  renderEvents(): void {
     const firstTd = this.container.querySelector("td");
     this.tdWidth = firstTd ? firstTd.offsetWidth : 0;
 
@@ -410,9 +405,8 @@ export class ResourceCalendar {
    * in the DOM. Unlike {@link ResourceCalendar#render} this rebuilds nothing
    * and reads no event data, so events created or moved since the last fetch
    * survive a resize.
-   * @returns {void}
    */
-  reflow() {
+  reflow(): void {
     if (!this.isRendered) {
       return;
     }
@@ -431,11 +425,9 @@ export class ResourceCalendar {
   /**
    * Highlights the cells the dragged event would occupy if it were dropped at
    * the cursor's current position
-   * @param {HTMLTableRowElement|null} tr - the row under the cursor
-   * @param {number} clientX
-   * @returns {void}
+   * @param tr - the row under the cursor
    */
-  highlightDropRange(tr, clientX) {
+  highlightDropRange(tr: HTMLTableRowElement | null, clientX: number): void {
     this.clearDropHighlight();
 
     if (!tr || !this._drag || !this.tdWidth) {
@@ -464,9 +456,8 @@ export class ResourceCalendar {
 
   /**
    * Removes the drop highlight from wherever it currently is.
-   * @returns {void}
    */
-  clearDropHighlight() {
+  clearDropHighlight(): void {
     this._highlighted.forEach((cell) => cell.classList.remove("drag-over"));
     this._highlighted = [];
   }
@@ -474,9 +465,8 @@ export class ResourceCalendar {
   /**
    * Clears the container and renders the toolbar + table, then places events
    * and wires up cell/dropzone interaction.
-   * @returns {void}
    */
-  render() {
+  render(): void {
     if (!this.container) {
       console.error(
         "ResourceCalendar Error: Cannot render. Instance is not valid or container not found.",
@@ -500,22 +490,17 @@ export class ResourceCalendar {
     this.calendarEl.addEventListener("click", (e) => {
       const td = tdOf(e);
       if (td) {
-        this.dateClick?.(
-          Event.fromClick(this, td, /** @type {MouseEvent} */ (e)),
-        );
+        this.dateClick?.(Event.fromClick(this, td, e));
       }
     });
 
     this.calendarEl.addEventListener("dragover", (e) => {
       e.preventDefault();
-      this.highlightDropRange(
-        tdOf(e)?.closest("tr") ?? null,
-        /** @type {DragEvent} */ (e).clientX,
-      );
+      this.highlightDropRange(tdOf(e)?.closest("tr") ?? null, e.clientX);
     });
 
     this.calendarEl.addEventListener("dragleave", (e) => {
-      const to = /** @type {DragEvent} */ (e).relatedTarget;
+      const to = e.relatedTarget;
       if (!(to instanceof Node) || !this.calendarEl.contains(to)) {
         this.clearDropHighlight();
       }
@@ -530,9 +515,7 @@ export class ResourceCalendar {
         return;
       }
 
-      const id = /** @type {DragEvent} */ (e).dataTransfer?.getData(
-        "text/plain",
-      );
+      const id = e.dataTransfer?.getData("text/plain");
       const eventEl = id ? document.getElementById(id) : null;
       if (eventEl) {
         eventEl._dropTarget = td;
@@ -544,15 +527,14 @@ export class ResourceCalendar {
 
   /**
    * Creates the table element
-   * @returns {HTMLElement}
    */
-  createTable() {
+  createTable(): HTMLElement {
     const table = document.createElement("table");
     table.style.tableLayout = "fixed";
     table.append(this.createHeader());
     table.append(this.createBody());
 
-    if (this.options.striping === Striping.ROWS) {
+    if (this.options.striping === "rows") {
       table.classList.add("rc-table-striped");
     }
 
@@ -573,10 +555,9 @@ export class ResourceCalendar {
 
   /**
    * Creates the toolbar element
-   * @returns {HTMLElement} The generated toolbar element.
-   * @private
+   * @returns The generated toolbar element.
    */
-  createToolbar() {
+  private createToolbar(): HTMLElement {
     const toolbarRow = document.createElement("div");
     toolbarRow.classList.add("rc-row");
 
@@ -587,7 +568,7 @@ export class ResourceCalendar {
 
     const toolbarConfig = this.options.toolbar;
 
-    for (const [key, value] of Object.entries(toolbarConfig)) {
+    for (const [, value] of Object.entries(toolbarConfig)) {
       const toolbarPart = document.createElement("div");
       toolbarPart.classList.add("rc-toolbar-part");
 
@@ -607,7 +588,7 @@ export class ResourceCalendar {
             }
             return button;
           })
-          .filter(Boolean);
+          .filter((button): button is ButtonDefinition => !!button);
 
         if (buttons.length === 0) {
           continue;
@@ -633,9 +614,8 @@ export class ResourceCalendar {
 
   /**
    * Builds the view-mode switch button group.
-   * @returns {HTMLElement}
    */
-  createViewModeButtons() {
+  createViewModeButtons(): HTMLElement {
     const viewmodeBtnDiv = document.createElement("div");
     viewmodeBtnDiv.classList.add("rc-toolbar-part");
     const viewModes = ViewFactory.MODES;
@@ -669,9 +649,8 @@ export class ResourceCalendar {
 
   /**
    * Builds the toolbar element showing the current view's header text.
-   * @returns {HTMLElement}
    */
-  createDateDisplay() {
+  createDateDisplay(): HTMLElement {
     const headerText = this.viewmode.header(this.selectedDate);
     const span = document.createElement("span");
     span.classList.add("rc-date-display");
@@ -681,10 +660,8 @@ export class ResourceCalendar {
 
   /**
    * Builds a single toolbar button element from its definition.
-   * @param {ButtonDefinition} button
-   * @returns {HTMLElement}
    */
-  createButton(button) {
+  createButton(button: ButtonDefinition): HTMLElement {
     if (typeof button.creationFunction === "function") {
       return button.creationFunction();
     }
@@ -711,16 +688,14 @@ export class ResourceCalendar {
 
   /**
    * Builds the `<input type="date">` date picker for the toolbar.
-   * @returns {HTMLInputElement}
    */
-  createDateSelect() {
+  createDateSelect(): HTMLInputElement {
     const input = document.createElement("input");
     input.classList.add("rc-date-input");
     input.type = "date";
     input.value = Utils.formatDateForInput(this.selectedDate);
     input.addEventListener("change", (event) => {
-      const selectedDateString = /** @type {HTMLInputElement} */ (event.target)
-        .value;
+      const selectedDateString = (event.target as HTMLInputElement).value;
       const selectedDate = Temporal.PlainDate.from(
         selectedDateString,
       ).toPlainDateTime(Temporal.PlainTime.from("00:00:00"));
@@ -731,10 +706,9 @@ export class ResourceCalendar {
 
   /**
    * Creates the table header (<thead>) element
-   * @returns {HTMLElement} The generated thead element.
-   * @private
+   * @returns The generated thead element.
    */
-  createHeader() {
+  private createHeader(): HTMLElement {
     const thead = document.createElement("thead");
     thead.style.position = "sticky";
     thead.style.top = "0px";
@@ -765,7 +739,7 @@ export class ResourceCalendar {
       dateTh.style.top = "0px";
       dateTh.textContent = formattedDate;
 
-      if (this.options.striping === Striping.COLUMNS && index % 2 === 0) {
+      if (this.options.striping === "columns" && index % 2 === 0) {
         dateTh.classList.add("rc-col-stripe");
       }
 
@@ -785,10 +759,9 @@ export class ResourceCalendar {
 
   /**
    * Creates the table body (<tbody>) element
-   * @returns {HTMLElement} The generated tbody element.
-   * @private
+   * @returns The generated tbody element.
    */
-  createBody() {
+  private createBody(): HTMLElement {
     const tbody = document.createElement("tbody");
 
     // drop rows from a previous render so removed resources do not linger
@@ -813,7 +786,7 @@ export class ResourceCalendar {
             resourceTd.classList.add("rc-today-subtle");
           }
 
-          if (this.options.striping === Striping.COLUMNS && i % 2 === 0) {
+          if (this.options.striping === "columns" && i % 2 === 0) {
             resourceTd.classList.add("rc-col-stripe");
           }
 
@@ -840,28 +813,26 @@ export class ResourceCalendar {
 
   /**
    * Advances the calendar to the next view (next day/week/month).
-   * @returns {void}
    */
-  getNext() {
+  getNext(): void {
     this.selectDate(this.viewmode.advanceBy(this.selectedDate, 1));
   }
 
   /**
    * Moves the calendar to the previous view (previous day/week/month).
-   * @returns {void}
    */
-  getPrev() {
+  getPrev(): void {
     this.selectDate(this.viewmode.advanceBy(this.selectedDate, -1));
   }
 
   /**
    * Whether the date range `[startDate, endDate]` overlaps the calendar's
    * currently visible range.
-   * @param {Temporal.PlainDateTime} startDate
-   * @param {Temporal.PlainDateTime} endDate
-   * @returns {boolean}
    */
-  verifyDateValidity(startDate, endDate) {
+  verifyDateValidity(
+    startDate: Temporal.PlainDateTime,
+    endDate: Temporal.PlainDateTime,
+  ): boolean {
     if (
       !startDate ||
       !endDate ||
@@ -884,29 +855,23 @@ export class ResourceCalendar {
 
   /**
    * Converts a column count to a duration in milliseconds.
-   * @param {number} subdivisions
-   * @returns {number}
    */
-  subdivisionsToTime(subdivisions) {
+  subdivisionsToTime(subdivisions: number): number {
     return subdivisions * this.subdivisionInterval;
   }
 
   /**
    * The date one subdivision column after `date`.
-   * @param {Temporal.PlainDateTime} date
-   * @returns {Temporal.PlainDateTime}
    */
-  getNextDate(date) {
+  getNextDate(date: Temporal.PlainDateTime): Temporal.PlainDateTime {
     return date.add({ milliseconds: this.subdivisionInterval });
   }
 
   /**
    * Pixel x-offset (measured from the calendar start) -> date.
    * Uses wall-clock (PlainDateTime) math so it is unaffected by DST shifts.
-   * @param {number} diffX
-   * @returns {Temporal.PlainDateTime}
    */
-  getDateFromDiffX(diffX) {
+  getDateFromDiffX(diffX: number): Temporal.PlainDateTime {
     const offsetMs = (this.subdivisionInterval * diffX) / this.tdWidth;
     return this.startDate.add({ milliseconds: Math.round(offsetMs) });
   }
@@ -914,10 +879,8 @@ export class ResourceCalendar {
   /**
    * Date -> pixel x-offset (measured from the calendar start).
    * Uses wall-clock (PlainDateTime) math so it is unaffected by DST shifts.
-   * @param {Temporal.PlainDateTime} date
-   * @returns {number}
    */
-  getDiffXFromDate(date) {
+  getDiffXFromDate(date: Temporal.PlainDateTime): number {
     const diffMs = date
       .since(this.startDate, { largestUnit: "hour" })
       .total({ unit: "milliseconds" });
@@ -927,11 +890,11 @@ export class ResourceCalendar {
   /**
    * Snaps a date to the subdivision grid. Grid lines sit at
    * startDate + k * subdivisionInterval; mode is "floor", "ceil" or "round".
-   * @param {Temporal.PlainDateTime} date
-   * @param {"floor"|"ceil"|"round"} mode
-   * @returns {Temporal.PlainDateTime}
    */
-  snapToGrid(date, mode = "round") {
+  snapToGrid(
+    date: Temporal.PlainDateTime,
+    mode: "floor" | "ceil" | "round" = "round",
+  ): Temporal.PlainDateTime {
     const offsetMs = date
       .since(this.startDate, { largestUnit: "hour" })
       .total({ unit: "milliseconds" });
@@ -945,10 +908,8 @@ export class ResourceCalendar {
   /**
    * Like {@link ResourceCalendar#getDiffXFromDate} but clamped to the
    * visible `[0, end]` pixel range.
-   * @param {Temporal.PlainDateTime} date
-   * @returns {number}
    */
-  getBoundedDiffXFromDate(date) {
+  getBoundedDiffXFromDate(date: Temporal.PlainDateTime): number {
     return Math.min(
       Math.max(this.getDiffXFromDate(date), 0),
       this.getDiffXFromDate(this.endDate),

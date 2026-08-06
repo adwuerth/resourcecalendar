@@ -1,7 +1,7 @@
 // Declaration merging for the non-standard expando properties this library
 // stashes directly on DOM nodes.
-import type { ResourceCalendar } from "./ResourceCalendar.js";
-import type { Event as CalendarEvent } from "./Event.js";
+import type { ResourceCalendar } from "./ResourceCalendar";
+import type { Event as CalendarEvent } from "./Event";
 
 declare global {
   interface Element {

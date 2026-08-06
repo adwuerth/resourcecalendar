@@ -1,34 +1,22 @@
 import { Temporal } from "temporal-polyfill";
 import { ViewMode } from "./ViewMode";
+import type { ResourceCalendarOptions } from "./ResourceCalendar";
 import iconCalendarDay from "./assets/calendar-day.svg?raw";
-
-/**
- * @typedef {import("./ResourceCalendar").ResourceCalendarOptions} ResourceCalendarOptions
- */
 
 /**
  * Day view: one column per hour of a single day.
  */
 export class DayView extends ViewMode {
-  /** @type {string} */
   static name = "day";
-  /** @type {{ iconHtml: string }} */
-  static buttonAttributes = {
+  static buttonAttributes: { iconHtml: string } = {
     iconHtml: iconCalendarDay,
   };
 
-  /**
-   * @param {ResourceCalendarOptions} options
-   */
-  constructor(options) {
+  constructor(options: ResourceCalendarOptions) {
     super(DayView.name, options);
   }
 
-  /**
-   * @param {Temporal.PlainDateTime} date
-   * @returns {string}
-   */
-  formatDate(date) {
+  formatDate(date: Temporal.PlainDateTime): string {
     return date.toLocaleString(this.locale, {
       hour: "2-digit",
       minute: "2-digit",
@@ -37,21 +25,18 @@ export class DayView extends ViewMode {
 
   /**
    * Advances the given date by a number of days.
-   * @param {Temporal.PlainDateTime} date
-   * @param {number} by
-   * @returns {Temporal.PlainDateTime}
    */
-  advanceBy(date, by) {
+  advanceBy(date: Temporal.PlainDateTime, by: number): Temporal.PlainDateTime {
     return date.add({ days: by });
   }
 
   /**
    * Gets an array of 24 dates representing each hour of the day for the given
    * date. Each entry is set to the start of that hour (00:00, 01:00, ...).
-   * @param {Temporal.PlainDateTime} date
-   * @returns {Temporal.PlainDateTime[]}
    */
-  getDates(date = Temporal.Now.plainDateTimeISO()) {
+  getDates(
+    date: Temporal.PlainDateTime = Temporal.Now.plainDateTimeISO(),
+  ): Temporal.PlainDateTime[] {
     const hours = [];
     for (let i = 0; i < 24; i++) {
       hours.push(
@@ -67,11 +52,7 @@ export class DayView extends ViewMode {
     return hours;
   }
 
-  /**
-   * @param {Temporal.PlainDateTime} date
-   * @returns {Temporal.PlainDateTime}
-   */
-  getStartDate(date) {
+  getStartDate(date: Temporal.PlainDateTime): Temporal.PlainDateTime {
     return Temporal.PlainDate.from({
       year: date.year,
       month: date.month,
@@ -81,11 +62,11 @@ export class DayView extends ViewMode {
 
   /**
    * Whether both dates fall in the same hour of the same day.
-   * @param {Temporal.PlainDateTime} date1
-   * @param {Temporal.PlainDateTime} date2
-   * @returns {boolean}
    */
-  equalsUnit(date1, date2) {
+  equalsUnit(
+    date1: Temporal.PlainDateTime,
+    date2: Temporal.PlainDateTime,
+  ): boolean {
     if (
       !(date1 instanceof Temporal.PlainDateTime) ||
       !(date2 instanceof Temporal.PlainDateTime)
@@ -101,11 +82,7 @@ export class DayView extends ViewMode {
     );
   }
 
-  /**
-   * @param {Temporal.PlainDateTime} date
-   * @returns {string}
-   */
-  header(date) {
+  header(date: Temporal.PlainDateTime): string {
     return date.toLocaleString(this.locale);
   }
 }

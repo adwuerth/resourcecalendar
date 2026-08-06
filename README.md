@@ -1,6 +1,6 @@
 # resourcecalendar
 
-A resource calendar for the browser. Rows are resources (people, rooms, machines), columns are time, and events are draggable blocks placed on the grid. Written in plain JavaScript. The only runtime dependency is [temporal-polyfill](https://github.com/fullcalendar/temporal-polyfill), which handles all date math.
+A resource calendar for the browser. Rows are resources (people, rooms, machines), columns are time, and events are draggable blocks placed on the grid. The only runtime dependency is [temporal-polyfill](https://github.com/fullcalendar/temporal-polyfill), which handles all date math.
 
 The library provides day, week, and month views, drag-and-drop and resize, overlap stacking, and a configurable toolbar. It does not talk to a server on its own. You supply callbacks, and the calendar invokes them when it needs data or when an event changes.
 
@@ -73,16 +73,19 @@ The data callbacks are yours to implement:
 - `saveEventFunction` / `deleteEventFunction` run when the user drags, resizes, or deletes an event, so you can persist the change.
 - `dateClick` / `eventClick` / `eventDrop` are interaction hooks.
 
-See `ResourceCalendar.DEFAULT_OPTIONS` in `src/ResourceCalendar.js` for the full option list and defaults.
+See `ResourceCalendar.DEFAULT_OPTIONS` in `src/ResourceCalendar.ts` for the full option list and defaults.
 
 ## Development
 
 ```bash
 npm run dev        # Vite dev server; open examples/index.html for a live calendar
 npm run build      # ES + UMD bundles and .d.ts files into dist/
-npm run typecheck  # check the JSDoc types without emitting
+npm run typecheck  # type-check without emitting
 npm run preview    # serve the built bundle
 ```
+
+The source is TypeScript. Vite transpiles it for the bundles; `tsc` only emits
+the `.d.ts` files.
 
 ## License
 
