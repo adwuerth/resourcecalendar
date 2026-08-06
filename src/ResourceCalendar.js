@@ -193,6 +193,8 @@ export class ResourceCalendar {
    * @type {{ event: Event, startX: number }|null}
    */
   _drag = null;
+  /** @type {HTMLTableCellElement[]} cells currently carrying the drop highlight */
+  _highlighted = [];
   /** @type {ResourceCalendarOptions["fetchResourcesFunction"]} */
   fetchResourcesFunction;
   /** @type {ResourceCalendarOptions["fetchEventDataFunction"]} */
@@ -452,7 +454,11 @@ export class ResourceCalendar {
 
     const cells = tr.querySelectorAll("td");
     for (let i = first; i < first + span; i++) {
-      cells[i]?.classList.add("drag-over");
+      const cell = cells[i];
+      if (cell) {
+        cell.classList.add("drag-over");
+        this._highlighted.push(cell);
+      }
     }
   }
 
@@ -461,9 +467,8 @@ export class ResourceCalendar {
    * @returns {void}
    */
   clearDropHighlight() {
-    this.calendarEl
-      ?.querySelectorAll(".drag-over")
-      .forEach((cell) => cell.classList.remove("drag-over"));
+    this._highlighted.forEach((cell) => cell.classList.remove("drag-over"));
+    this._highlighted = [];
   }
 
   /**
