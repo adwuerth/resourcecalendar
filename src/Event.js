@@ -551,27 +551,27 @@ export class Event {
     Event.updateRow(prevTr);
   }
 
+  displayRange() {
+    if (!this.allDay) {
+      return { start: this.startDate, end: this.endDate };
+    }
+
+    const midnight = { hour: 0, minute: 0, second: 0, millisecond: 0 };
+    return {
+      start: this.startDate.with(midnight),
+      end: this.endDate.add({ days: 1 }).with(midnight),
+    };
+  }
+
   /**
    * Positions and sizes the event element horizontally to match its dates.
    * @returns {void}
    */
   updatePositionAndWidth() {
-    let endDate = this.endDate;
-    let startDate = this.startDate;
-    if (this.allDay) {
-      startDate = startDate.with({
-        hour: 0,
-        minute: 0,
-        second: 0,
-        millisecond: 0,
-      });
-      endDate = endDate
-        .add({ days: 1 })
-        .with({ hour: 0, minute: 0, second: 0, millisecond: 0 });
-    }
+    const { start, end } = this.displayRange();
 
-    let diffXStart = this.calendar.getBoundedDiffXFromDate(startDate);
-    let diffXEnd = this.calendar.getBoundedDiffXFromDate(endDate);
+    const diffXStart = this.calendar.getBoundedDiffXFromDate(start);
+    const diffXEnd = this.calendar.getBoundedDiffXFromDate(end);
 
     if (!this.element) {
       return;

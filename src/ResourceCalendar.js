@@ -440,12 +440,12 @@ export class ResourceCalendar {
       return;
     }
 
-    const event = this._drag.event;
     const movedColumns = Math.round(
       (clientX - this._drag.startX) / this.tdWidth,
     );
-    const startX = this.getBoundedDiffXFromDate(event.startDate);
-    const endX = this.getBoundedDiffXFromDate(event.endDate);
+    const { start, end } = this._drag.event.displayRange();
+    const startX = this.getBoundedDiffXFromDate(start);
+    const endX = this.getBoundedDiffXFromDate(end);
 
     const first = Math.round(startX / this.tdWidth) + movedColumns;
     const span = Math.max(1, Math.round((endX - startX) / this.tdWidth));
