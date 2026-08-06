@@ -59,6 +59,16 @@ import { Event } from "./Event";
  */
 
 /**
+ * The `<td>` a delegated DOM event happened in, or `null` when it happened
+ * outside the grid (toolbar, header, table padding).
+ * @param {globalThis.Event} e
+ * @returns {HTMLTableCellElement|null}
+ */
+function tdOf(e) {
+  return e.target instanceof Element ? e.target.closest("td") : null;
+}
+
+/**
  * The calendar orchestrator. Owns the lifecycle:
  * `updateCalendarData()` -> `render()` -> `renderEvents()`.
  */
@@ -169,8 +179,6 @@ export class ResourceCalendar {
   tdWidth = 0;
   /** @type {HTMLElement} the rendered calendar root element */
   calendarEl;
-  /** @type {HTMLElement[]} the drop target elements */
-  dropzones = [];
   /** @type {number|null} index of today's column, or null */
   todayIndex = null;
   /** @type {boolean} whether the calendar is currently rendered */
@@ -179,6 +187,12 @@ export class ResourceCalendar {
   buttons;
   /** @type {ResizeObserver|undefined} watches the container for width changes */
   _resizeObserver;
+  /**
+   * The event currently being dragged and the pointer x it was grabbed at.
+   * Set on dragstart, cleared on dragend.
+   * @type {{ event: Event, startX: number }|null}
+   */
+  _drag = null;
   /** @type {ResourceCalendarOptions["fetchResourcesFunction"]} */
   fetchResourcesFunction;
   /** @type {ResourceCalendarOptions["fetchEventDataFunction"]} */
@@ -413,6 +427,46 @@ export class ResourceCalendar {
   }
 
   /**
+   * Highlights the cells the dragged event would occupy if it were dropped at
+   * the cursor's current position
+   * @param {HTMLTableRowElement|null} tr - the row under the cursor
+   * @param {number} clientX
+   * @returns {void}
+   */
+  highlightDropRange(tr, clientX) {
+    this.clearDropHighlight();
+
+    if (!tr || !this._drag || !this.tdWidth) {
+      return;
+    }
+
+    const event = this._drag.event;
+    const movedColumns = Math.round(
+      (clientX - this._drag.startX) / this.tdWidth,
+    );
+    const startX = this.getBoundedDiffXFromDate(event.startDate);
+    const endX = this.getBoundedDiffXFromDate(event.endDate);
+
+    const first = Math.round(startX / this.tdWidth) + movedColumns;
+    const span = Math.max(1, Math.round((endX - startX) / this.tdWidth));
+
+    const cells = tr.querySelectorAll("td");
+    for (let i = first; i < first + span; i++) {
+      cells[i]?.classList.add("drag-over");
+    }
+  }
+
+  /**
+   * Removes the drop highlight from wherever it currently is.
+   * @returns {void}
+   */
+  clearDropHighlight() {
+    this.calendarEl
+      ?.querySelectorAll(".drag-over")
+      .forEach((cell) => cell.classList.remove("drag-over"));
+  }
+
+  /**
    * Clears the container and renders the toolbar + table, then places events
    * and wires up cell/dropzone interaction.
    * @returns {void}
@@ -425,8 +479,6 @@ export class ResourceCalendar {
       return;
     }
 
-    const calendar = this;
-
     this.calendarEl = document.createElement("div");
 
     const toolbar = this.createToolbar();
@@ -438,46 +490,48 @@ export class ResourceCalendar {
     this.container.innerHTML = "";
     this.container.append(this.calendarEl);
 
-    /** @type {HTMLElement[]} */
-    this.dropzones = Array.from(this.container.querySelectorAll(".dropzone"));
-
     this.renderEvents();
 
-    this.container.querySelectorAll("td").forEach((td) => {
-      td.addEventListener("click", function (e) {
-        const event = Event.fromClick(calendar, this, e);
-        calendar.dateClick?.(event);
-      });
+    this.calendarEl.addEventListener("click", (e) => {
+      const td = tdOf(e);
+      if (td) {
+        this.dateClick?.(
+          Event.fromClick(this, td, /** @type {MouseEvent} */ (e)),
+        );
+      }
     });
 
-    this.dropzones.forEach((dz) => {
-      dz.addEventListener("dragenter", function (e) {
-        e.preventDefault();
-        this.classList.add("drag-over");
-      });
+    this.calendarEl.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      this.highlightDropRange(
+        tdOf(e)?.closest("tr") ?? null,
+        /** @type {DragEvent} */ (e).clientX,
+      );
+    });
 
-      dz.addEventListener("dragover", function (e) {
-        e.preventDefault();
-      });
+    this.calendarEl.addEventListener("dragleave", (e) => {
+      const to = /** @type {DragEvent} */ (e).relatedTarget;
+      if (!(to instanceof Node) || !this.calendarEl.contains(to)) {
+        this.clearDropHighlight();
+      }
+    });
 
-      dz.addEventListener("dragleave", function () {
-        this.classList.remove("drag-over");
-      });
+    this.calendarEl.addEventListener("drop", (e) => {
+      e.preventDefault();
+      this.clearDropHighlight();
 
-      dz.addEventListener("drop", function (e) {
-        e.preventDefault();
+      const td = tdOf(e);
+      if (!td) {
+        return;
+      }
 
-        this.classList.remove("drag-over");
-
-        if (!e.dataTransfer) {
-          return;
-        }
-        const id = e.dataTransfer.getData("text/plain");
-        const eventEl = document.getElementById(id);
-        if (eventEl && e.target instanceof HTMLElement) {
-          eventEl._dropTarget = e.target;
-        }
-      });
+      const id = /** @type {DragEvent} */ (e).dataTransfer?.getData(
+        "text/plain",
+      );
+      const eventEl = id ? document.getElementById(id) : null;
+      if (eventEl) {
+        eventEl._dropTarget = td;
+      }
     });
 
     this.isRendered = true;
@@ -763,8 +817,6 @@ export class ResourceCalendar {
 
           const dropzoneDiv = document.createElement("div");
           dropzoneDiv.classList.add("dropzone");
-          dropzoneDiv.style.width = "100%";
-          dropzoneDiv.style.height = "100%";
           resourceTd.append(dropzoneDiv);
 
           resourceRow.append(resourceTd);

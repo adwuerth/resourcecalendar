@@ -270,27 +270,27 @@ export class Event {
       this.calendar.eventClick?.(this);
     });
 
-    /** @type {number} */
-    let dragStartX = 0;
-
     element.addEventListener("dragstart", (e) => {
-      dragStartX = e.clientX;
+      this.calendar._drag = { event: this, startX: e.clientX };
       element._dropTarget = null;
       e.dataTransfer?.setData("text/plain", element.id);
 
       setTimeout(() => {
         element.style.opacity = "0.5";
         element.style.cursor = "grabbing";
-        this.calendar.dropzones.forEach((dz) => (dz.style.zIndex = "1000"));
+        this.calendar.calendarEl.classList.add("rc-dragging");
       }, 0);
     });
 
     element.addEventListener("dragend", (e) => {
       element.style.opacity = "1";
       element.style.cursor = "grab";
-      this.calendar.dropzones.forEach((dz) => dz.classList.remove("drag-over"));
+      this.calendar.calendarEl.classList.remove("rc-dragging");
+      this.calendar.clearDropHighlight();
 
       const dropTarget = element._dropTarget;
+      const dragStartX = this.calendar._drag?.startX ?? e.clientX;
+      this.calendar._drag = null;
 
       if (dropTarget) {
         const draggedDistanceX = e.clientX - dragStartX;
@@ -302,7 +302,6 @@ export class Event {
         event.save();
       }
 
-      event.calendar.dropzones.forEach((dz) => (dz.style.zIndex = "-1"));
       delete element._dropTarget;
     });
 
