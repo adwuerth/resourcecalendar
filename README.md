@@ -44,6 +44,28 @@ const calendar = new ResourceCalendar({
 calendar.render();
 ```
 
+### Without a bundler
+
+The UMD build is self-contained — it has the date polyfill inlined, so a
+`<script>` tag needs nothing else:
+
+```html
+<link
+  rel="stylesheet"
+  href="node_modules/resourcecalendar/dist/resourcecalendar.css"
+/>
+<script src="node_modules/resourcecalendar/dist/resourcecalendar.umd.cjs"></script>
+<script>
+  const calendar = new ResourceCalendar.ResourceCalendar({
+    containerId: "calendar",
+  });
+  calendar.render();
+</script>
+```
+
+The ES build keeps `temporal-polyfill` external instead, so your bundler
+resolves the single installed copy rather than shipping a second one.
+
 The data callbacks are yours to implement:
 
 - `fetchResourcesFunction` returns `{ resourceId: label }` for the rows.
@@ -56,9 +78,10 @@ See `ResourceCalendar.DEFAULT_OPTIONS` in `src/ResourceCalendar.js` for the full
 ## Development
 
 ```bash
-npm run dev      # Vite dev server; open examples/index.html for a live calendar
-npm run build    # build the bundle into dist/ (ES + UMD)
-npm run preview  # serve the built bundle
+npm run dev        # Vite dev server; open examples/index.html for a live calendar
+npm run build      # ES + UMD bundles and .d.ts files into dist/
+npm run typecheck  # check the JSDoc types without emitting
+npm run preview    # serve the built bundle
 ```
 
 ## License

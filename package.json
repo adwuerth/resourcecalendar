@@ -6,13 +6,18 @@
   "type": "module",
   "main": "./dist/resourcecalendar.umd.cjs",
   "module": "./dist/resourcecalendar.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/resourcecalendar.js",
       "require": "./dist/resourcecalendar.umd.cjs"
     },
-    "./style.css": "./dist/style.css"
+    "./style.css": "./dist/resourcecalendar.css"
   },
+  "sideEffects": [
+    "**/*.css"
+  ],
   "files": [
     "dist"
   ],
@@ -21,9 +26,9 @@
   },
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && vite build --mode umd && tsc",
     "preview": "vite preview",
-    "typecheck": "tsc",
+    "typecheck": "tsc --noEmit",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Adrian Würth",
