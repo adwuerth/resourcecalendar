@@ -400,8 +400,7 @@ export class Event {
       ) {
         handle.classList.remove("overflow-handle");
         handle.classList.add("resize-handle");
-        const icon = handle.querySelector("i");
-        if (icon) icon.remove();
+        handle.replaceChildren();
       }
     };
 
