@@ -149,8 +149,12 @@ export class ResourceCalendar {
   resources;
   /** @type {Map<string, HTMLTableRowElement>} resource id -> table row */
   rows;
-  /** @type {EventJSON[]} cached event data for the current render */
+  /** @type {EventJSON[]} raw event data as last returned by the host */
   eventData;
+  /**
+   * @type {Set<Event>}
+   */
+  events = new Set();
   /** @type {Temporal.PlainDateTime[]} the visible column dates */
   dates;
   /** @type {Temporal.PlainDateTime} start of the visible range */
@@ -341,7 +345,8 @@ export class ResourceCalendar {
   }
 
   /**
-   * Refreshes the cached event data before a render.
+   * Re-fetches the event data from the host and rebuilds the event set from
+   * it.
    * @returns {void}
    */
   updateEventData() {
@@ -353,11 +358,19 @@ export class ResourceCalendar {
     }
     /** @type {EventJSON[]} */
     this.eventData = Array.isArray(data) ? data : [];
+
+    this.events.forEach((event) => event.detach());
+    this.events = new Set(
+      this.eventData
+        .map((data) => Event.fromJSON(this, data))
+        .filter((event) => event instanceof Event),
+    );
   }
 
   /**
-   * Instantiates and places every event from the cached event data, then
-   * restacks all rows.
+   * Places every live event and restacks all rows. Reuses the existing
+   * {@link Event} instances (and their elements) rather than rebuilding them
+   * from the raw data, so a re-render keeps whatever the user changed.
    * @returns {void}
    */
   renderEvents() {
@@ -369,13 +382,7 @@ export class ResourceCalendar {
       return;
     }
 
-    for (const data of this.eventData) {
-      const event = Event.fromJSON(this, data);
-
-      if (event instanceof Event) {
-        event.renderPartial();
-      }
-    }
+    this.events.forEach((event) => event.renderPartial());
 
     this.calendarEl.querySelectorAll("tr").forEach((tr) => {
       Event.updateRow(tr);
@@ -402,11 +409,7 @@ export class ResourceCalendar {
     }
     this.tdWidth = tdWidth;
 
-    this.calendarEl.querySelectorAll(".rc-event").forEach((el) => {
-      /** @type {Event|undefined} */ (
-        /** @type {HTMLElement} */ (el)._event
-      )?.renderUpdate();
-    });
+    this.events.forEach((event) => event.renderUpdate());
   }
 
   /**

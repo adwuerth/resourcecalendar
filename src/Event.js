@@ -227,6 +227,8 @@ export class Event {
     element._eventId = this.eventId;
     element._event = this;
 
+    this.calendar.events.add(this);
+
     const event = this;
 
     /** @type {boolean} */
@@ -535,6 +537,8 @@ export class Event {
    * @returns {void}
    */
   remove() {
+    this.calendar.events.delete(this);
+
     if (!this.element) {
       // dom event doesnt exist
       return;
