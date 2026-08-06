@@ -173,10 +173,8 @@ export class ResourceCalendar {
   isRendered = false;
   /** @type {Record<string, ButtonDefinition>} resolved toolbar buttons */
   buttons;
-  /** @type {() => void} window resize handler */
-  _onResize = () => {};
-  /** @type {ReturnType<typeof setTimeout>|undefined} */
-  _resizeTimeout;
+  /** @type {ResizeObserver|undefined} watches the container for width changes */
+  _resizeObserver;
   /** @type {ResourceCalendarOptions["fetchResourcesFunction"]} */
   fetchResourcesFunction;
   /** @type {ResourceCalendarOptions["fetchEventDataFunction"]} */
@@ -231,16 +229,10 @@ export class ResourceCalendar {
 
     this.updateCalendarData();
 
-    // re-render calendar on window resize
-    this._onResize = () => {
-      clearTimeout(this._resizeTimeout);
-      this._resizeTimeout = setTimeout(() => {
-        if (this.isRendered) {
-          this.render();
-        }
-      }, 250);
-    };
-    window.addEventListener("resize", this._onResize);
+    // reposition events when the container changes width (window resize,
+    // sidebar toggle, ...) — no re-render, so unsaved events survive
+    this._resizeObserver = new ResizeObserver(() => this.reflow());
+    this._resizeObserver.observe(this.container);
   }
 
   /**
@@ -250,8 +242,7 @@ export class ResourceCalendar {
    * @returns {void}
    */
   destroy() {
-    window.removeEventListener("resize", this._onResize);
-    clearTimeout(this._resizeTimeout);
+    this._resizeObserver?.disconnect();
     if (this.container) {
       this.container.innerHTML = "";
       delete this.container._calendar;
@@ -390,6 +381,33 @@ export class ResourceCalendar {
 
     this.calendarEl.querySelectorAll("tr").forEach((tr) => {
       Event.updateRow(tr);
+    });
+  }
+
+  /**
+   * Re-measures the column width and repositions the events that are already
+   * in the DOM. Unlike {@link ResourceCalendar#render} this rebuilds nothing
+   * and reads no event data, so events created or moved since the last fetch
+   * survive a resize.
+   * @returns {void}
+   */
+  reflow() {
+    if (!this.isRendered) {
+      return;
+    }
+
+    const firstTd = this.container.querySelector("td");
+    const tdWidth = firstTd ? firstTd.offsetWidth : 0;
+
+    if (!tdWidth || tdWidth === this.tdWidth) {
+      return;
+    }
+    this.tdWidth = tdWidth;
+
+    this.calendarEl.querySelectorAll(".rc-event").forEach((el) => {
+      /** @type {Event|undefined} */ (
+        /** @type {HTMLElement} */ (el)._event
+      )?.renderUpdate();
     });
   }
 
