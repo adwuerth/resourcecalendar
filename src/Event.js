@@ -814,10 +814,12 @@ export class Event {
   }
 
   /**
-   * Hands the event to the host's `deleteEventFunction`, if one was provided.
+   * Hands the event to the host's `deleteEventFunction`, if one was provided,
+   * then drops it from the calendar.
    * @returns {void}
    */
   delete() {
     this.calendar.deleteEventFunction?.(this);
+    this.remove();
   }
 }
