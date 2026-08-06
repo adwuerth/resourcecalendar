@@ -229,8 +229,6 @@ export class ResourceCalendar {
 
     this.updateCalendarData();
 
-    // reposition events when the container changes width (window resize,
-    // sidebar toggle, ...) — no re-render, so unsaved events survive
     this._resizeObserver = new ResizeObserver(() => this.reflow());
     this._resizeObserver.observe(this.container);
   }
