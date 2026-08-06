@@ -1,5 +1,5 @@
 @layer calendar.base {
-  table {
+  :where(.rc-calendar) table {
     width: 100%;
     text-align: center;
     border-collapse: separate;
@@ -7,38 +7,38 @@
     table-layout: fixed;
   }
 
-  thead th:not(:first-child) {
+  :where(.rc-calendar) thead th:not(:first-child) {
     border-top: 1px rgba(0, 0, 0, 0.3) solid;
   }
 
-  table th {
+  :where(.rc-calendar) table th {
     border-bottom: 1px rgba(0, 0, 0, 0.3) solid;
     border-right: 1px rgba(0, 0, 0, 0.3) solid;
   }
 
-  table td {
+  :where(.rc-calendar) table td {
     border-bottom: 1px rgba(0, 0, 0, 0.3) solid;
     border-right: 1px rgba(0, 0, 0, 0.3) solid;
   }
 
-  table thead th {
+  :where(.rc-calendar) table thead th {
     position: sticky;
     top: 0;
   }
 
-  td {
+  :where(.rc-calendar) td {
     min-height: 15px;
     vertical-align: top !important;
     overflow: visible;
     position: relative;
   }
 
-  tr {
+  :where(.rc-calendar) tr {
     min-height: 15px;
     height: 15px;
   }
 
-  .dropzone {
+  :where(.rc-calendar) .dropzone {
     position: absolute;
     top: 0;
     left: 0;
@@ -47,15 +47,15 @@
     z-index: -1;
   }
 
-  .rc-dragging .dropzone {
+  :where(.rc-calendar.rc-dragging) .dropzone {
     z-index: 1000;
   }
 
-  td.drag-over {
+  :where(.rc-calendar) td.drag-over {
     background-color: #eaf6f0;
   }
 
-  .rc-event {
+  :where(.rc-calendar) .rc-event {
     height: 15px;
     background-color: #d1e7dd;
     border: 1px solid #a3cfbb;
@@ -74,11 +74,11 @@
     box-sizing: border-box;
   }
 
-  .rc-event:active:not(.resizing) {
+  :where(.rc-calendar) .rc-event:active:not(.resizing) {
     cursor: grabbing;
   }
 
-  .resize-handle {
+  :where(.rc-calendar) .resize-handle {
     opacity: 0;
     position: absolute;
     width: 10px;
@@ -92,15 +92,15 @@
     justify-content: center;
   }
 
-  .handle-start {
+  :where(.rc-calendar) .handle-start {
     left: -5px;
   }
 
-  .handle-end {
+  :where(.rc-calendar) .handle-end {
     right: -5px;
   }
 
-  .overflow-handle {
+  :where(.rc-calendar) .overflow-handle {
     position: absolute;
     width: 25px;
     height: 100%;
@@ -112,32 +112,32 @@
     justify-content: center;
   }
 
-  .resizing {
+  :where(.rc-calendar) .resizing {
     user-select: none;
     cursor: ew-resize !important;
   }
 
   /* ── Toolbar ────────────────────────────────────────────────────────────── */
-  .rc-toolbar {
+  :where(.rc-calendar) .rc-toolbar {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 0.5rem;
   }
 
-  .rc-toolbar-part {
+  :where(.rc-calendar) .rc-toolbar-part {
     display: flex;
     align-items: center;
     gap: 0.25rem;
   }
 
-  .rc-date-display {
+  :where(.rc-calendar) .rc-date-display {
     font-weight: 700;
     font-size: 1.25rem;
     line-height: 1.5;
   }
 
-  .rc-btn {
+  :where(.rc-calendar) .rc-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -159,18 +159,18 @@
       border-color 0.15s ease-in-out;
   }
 
-  .rc-btn:hover {
+  :where(.rc-calendar) .rc-btn:hover {
     background-color: #424649;
     border-color: #373b3e;
   }
 
-  .rc-btn:active,
-  .rc-btn.active {
+  :where(.rc-calendar) .rc-btn:active,
+  :where(.rc-calendar) .rc-btn.active {
     background-color: #4d5154;
     border-color: #373b3e;
   }
 
-  .rc-date-input {
+  :where(.rc-calendar) .rc-date-input {
     display: block;
     width: auto;
     padding: 0.375rem 0.75rem;
@@ -187,45 +187,45 @@
       box-shadow 0.15s ease-in-out;
   }
 
-  .rc-date-input:focus {
+  :where(.rc-calendar) .rc-date-input:focus {
     border-color: #86b7fe;
     outline: 0;
     box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
   }
 
-  .rc-table-container {
+  :where(.rc-calendar) .rc-table-container {
     overflow-y: visible; /* maybe use scroll */
     overflow-x: hidden;
   }
 
-  .rc-row {
+  :where(.rc-calendar) .rc-row {
     display: flex;
     flex-wrap: wrap;
     width: 100%;
   }
 
-  .rc-col {
+  :where(.rc-calendar) .rc-col {
     flex: 1 0 0%;
     min-width: 0;
   }
 
-  .rc-resource-header {
+  :where(.rc-calendar) .rc-resource-header {
     padding: 0.25rem;
   }
 
-  .rc-today {
+  :where(.rc-calendar) .rc-today {
     background-color: #ffc107;
   }
 
-  .rc-today-subtle {
+  :where(.rc-calendar) .rc-today-subtle {
     background-color: #fff3cd;
   }
 
-  .rc-table-striped tbody tr:nth-of-type(odd) {
+  :where(.rc-calendar) .rc-table-striped tbody tr:nth-of-type(odd) {
     background-color: rgba(0, 0, 0, 0.05);
   }
 
-  .rc-col-stripe {
+  :where(.rc-calendar) .rc-col-stripe {
     background-color: rgba(0, 0, 0, 0.05);
   }
 }

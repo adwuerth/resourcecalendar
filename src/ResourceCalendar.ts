@@ -475,6 +475,7 @@ export class ResourceCalendar {
     }
 
     this.calendarEl = document.createElement("div");
+    this.calendarEl.classList.add("rc-calendar");
 
     const toolbar = this.createToolbar();
     this.calendarEl.append(toolbar);
