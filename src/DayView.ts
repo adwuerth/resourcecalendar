@@ -2,6 +2,7 @@ import { Temporal } from "temporal-polyfill";
 import { ViewMode } from "./ViewMode";
 import type { ResourceCalendarOptions } from "./ResourceCalendar";
 import iconCalendarDay from "./assets/calendar-day.svg?raw";
+import { Utils } from "./utils";
 
 /**
  * Day view: one column per hour of a single day.
@@ -12,8 +13,26 @@ export class DayView extends ViewMode {
     iconHtml: iconCalendarDay,
   };
 
+  /** first visible minute of the day */
+  minMinutes: number;
+  /** visible hours, i.e. number of columns before subdivision */
+  hourCount: number;
+
   constructor(options: ResourceCalendarOptions) {
     super(DayView.name, options);
+
+    let min = Utils.parseTimeOfDay(options.minTime);
+    let max = Utils.parseTimeOfDay(options.maxTime);
+    if (min === null || max === null || min >= max) {
+      console.warn(
+        `ResourceCalendar: invalid minTime/maxTime "${options.minTime}"/"${options.maxTime}", showing the whole day.`,
+      );
+      min = 0;
+      max = 24 * 60;
+    }
+    this.minMinutes = min;
+    // a partial last hour still gets a whole column
+    this.hourCount = Math.ceil((max - min) / 60);
   }
 
   formatDate(date: Temporal.PlainDateTime): string {
@@ -31,33 +50,35 @@ export class DayView extends ViewMode {
   }
 
   /**
-   * Gets an array of 24 dates representing each hour of the day for the given
-   * date. Each entry is set to the start of that hour (00:00, 01:00, ...).
+   * One date per visible hour, from `minTime` up to `maxTime`.
    */
   getDates(
     date: Temporal.PlainDateTime = Temporal.Now.plainDateTimeISO(),
   ): Temporal.PlainDateTime[] {
+    const start = this.getStartDate(date);
     const hours = [];
-    for (let i = 0; i < 24; i++) {
-      hours.push(
-        Temporal.PlainDate.from({
-          year: date.year,
-          month: date.month,
-          day: date.day,
-        }).toPlainDateTime(
-          Temporal.PlainTime.from({ hour: i, minute: 0, second: 0 }),
-        ),
-      );
+    for (let i = 0; i < this.hourCount; i++) {
+      hours.push(start.add({ hours: i }));
     }
     return hours;
   }
 
+  /**
+   * The given day at `minTime`.
+   */
   getStartDate(date: Temporal.PlainDateTime): Temporal.PlainDateTime {
-    return Temporal.PlainDate.from({
-      year: date.year,
-      month: date.month,
-      day: date.day,
-    }).toPlainDateTime(Temporal.PlainTime.from("00:00:00"));
+    return date
+      .toPlainDate()
+      .toPlainDateTime()
+      .add({ minutes: this.minMinutes });
+  }
+
+  /**
+   * The end of the last visible hour column (`maxTime`, rounded up to a whole
+   * hour after `minTime`).
+   */
+  getEndDate(date: Temporal.PlainDateTime): Temporal.PlainDateTime {
+    return this.getStartDate(date).add({ hours: this.hourCount });
   }
 
   /**

@@ -207,6 +207,14 @@
     justify-content: center;
   }
 
+  :where(.rc-calendar.rc-readonly) .rc-event {
+    cursor: default;
+  }
+
+  :where(.rc-calendar.rc-readonly) .resize-handle {
+    display: none;
+  }
+
   :where(.rc-calendar) .resizing {
     user-select: none;
     cursor: ew-resize !important;

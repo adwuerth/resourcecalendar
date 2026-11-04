@@ -103,6 +103,22 @@ export const Utils = {
   },
 
   /**
+   * Parses an `"HH:MM"` time of day into minutes after midnight. Accepts
+   * `"24:00"` as the end of the day; returns `null` for anything else invalid.
+   */
+  parseTimeOfDay(time: string): number | null {
+    const match = /^(\d{1,2}):(\d{2})$/.exec(time?.trim() ?? "");
+    if (!match) {
+      return null;
+    }
+    const minutes = Number(match[1]) * 60 + Number(match[2]);
+    if (Number(match[2]) > 59 || minutes > 24 * 60) {
+      return null;
+    }
+    return minutes;
+  },
+
+  /**
    * Converts a date to the `YYYY-MM-DD` string expected by `<input type="date">`.
    */
   formatDateForInput(date: Temporal.PlainDateTime): string {

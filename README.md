@@ -73,6 +73,12 @@ The data callbacks are yours to implement:
 - `saveEventFunction` / `deleteEventFunction` run when the user drags, resizes, or deletes an event, so you can persist the change.
 - `dateClick` / `eventClick` / `eventDrop` are interaction hooks.
 
+Behaviour options:
+
+- `editable: false` makes events read-only: no dragging, no resize handles. `eventClick` still fires.
+- `selectable: false` stops clicks on empty cells from calling `dateClick`, so users can't create events.
+- `minTime` / `maxTime` (`"HH:MM"`, default `"00:00"` / `"24:00"`) limit the hours shown in day view. They have no effect in week or month view.
+
 See `ResourceCalendar.DEFAULT_OPTIONS` in `src/ResourceCalendar.ts` for the full option list and defaults.
 
 ## Theming

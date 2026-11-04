@@ -53,12 +53,15 @@ export interface ResourceCalendarOptions {
   initialDate: Temporal.PlainDateTime | string;
   /** highlight the column for the current date/time */
   nowIndicator: boolean;
+  /** whether clicking an empty cell calls `dateClick` (by default creating an event) */
   selectable: boolean;
+  /** whether events can be dragged and resized */
   editable: boolean;
   /** row/column striping mode */
   striping: StripingMode;
   /** CSS framework whose palette the calendar should adopt */
   theming: ThemeMode;
+  /** called after an event was dragged to a new time or resource, and saved */
   eventDrop: ((event: Event) => void) | null;
   /** called when an event is clicked */
   eventClick: ((event: Event) => void) | null;
@@ -73,7 +76,9 @@ export interface ResourceCalendarOptions {
   locale: string;
   /** show Saturday/Sunday in week view */
   weekends: boolean;
+  /** first visible time of day in day view, `"HH:MM"` */
   minTime: string;
+  /** end of the visible day in day view, `"HH:MM"` (up to `"24:00"`) */
   maxTime: string;
   /** columns per date, keyed by view mode name */
   subdivision: Record<string, number>;
@@ -108,8 +113,8 @@ export class ResourceCalendar {
     defaultEventColor: "#5e5e5e",
     initialDate: Temporal.Now.plainDateTimeISO(),
     nowIndicator: true,
-    selectable: true, // todo
-    editable: true, // todo
+    selectable: true,
+    editable: true,
     striping: "none",
     theming: "none",
 
@@ -126,8 +131,8 @@ export class ResourceCalendar {
     defaultViewMode: "week",
     locale: navigator.language,
     weekends: true,
-    minTime: "00:00", // todo
-    maxTime: "24:00", // todo
+    minTime: "00:00",
+    maxTime: "24:00",
     subdivision: {
       week: 1,
       month: 1,
@@ -225,6 +230,7 @@ export class ResourceCalendar {
   deleteEventFunction: ResourceCalendarOptions["deleteEventFunction"];
   dateClick: ResourceCalendarOptions["dateClick"];
   eventClick: ResourceCalendarOptions["eventClick"];
+  eventDrop: ResourceCalendarOptions["eventDrop"];
 
   /**
    * Creates an instance of ResourceCalendar.
@@ -268,6 +274,7 @@ export class ResourceCalendar {
     this.deleteEventFunction = this.options.deleteEventFunction;
     this.dateClick = this.options.dateClick;
     this.eventClick = this.options.eventClick;
+    this.eventDrop = this.options.eventDrop;
     this.buttons = { ...this.standardButtons, ...this.options.customButtons };
 
     this.rows = new Map();
@@ -352,7 +359,10 @@ export class ResourceCalendar {
     // todo maybe move this into viewmode
     // calculate the ms of one subdivided date (column)
     this.subdivisionInterval =
-      Utils.calculateIntervalMilliseconds(this.dates[0], this.dates[1]) /
+      Utils.calculateIntervalMilliseconds(
+        this.dates[0],
+        this.dates[1] ?? this.endDate,
+      ) /
       this.subdivision;
 
     this.updateEventData();
@@ -494,6 +504,9 @@ export class ResourceCalendar {
     if (this.options.theming !== "none") {
       this.calendarEl.classList.add(`rc-theme-${this.options.theming}`);
     }
+    if (!this.options.editable) {
+      this.calendarEl.classList.add("rc-readonly");
+    }
 
     const toolbar = this.createToolbar();
     this.calendarEl.append(toolbar);
@@ -508,7 +521,7 @@ export class ResourceCalendar {
 
     this.calendarEl.addEventListener("click", (e) => {
       const td = tdOf(e);
-      if (td) {
+      if (td && this.options.selectable) {
         this.dateClick?.(Event.fromClick(this, td, e));
       }
     });

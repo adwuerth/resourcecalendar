@@ -196,7 +196,7 @@ export class Event {
     const template = document.createElement("div");
     template.innerHTML = `
       <div
-          draggable="true"
+          draggable="${this.calendar.options.editable}"
           class="rc-event">
           ${this.additionalEventHTML}
           <span style="text-overflow: ellipsis; overflow: hidden; white-space: nowrap;"></span>
@@ -276,6 +276,7 @@ export class Event {
         );
         this.moveBySubdivisions(movedSubdivisions, newTr);
         event.save();
+        this.calendar.eventDrop?.(this);
       }
 
       delete element._dropTarget;
@@ -293,7 +294,10 @@ export class Event {
       isStart: boolean,
       handle: HTMLElement,
     ): void {
-      if (handle.classList.contains("overflow-handle")) {
+      if (
+        !event.calendar.options.editable ||
+        handle.classList.contains("overflow-handle")
+      ) {
         return;
       }
       isResizing = true;
