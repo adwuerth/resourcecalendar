@@ -48,7 +48,10 @@
         }),
       };
 
-      const calendar = new ResourceCalendar(options);
+      const calendar = new ResourceCalendar(
+        "#container-resourcecalendar",
+        options,
+      );
       calendar.render();
     </script>
   </body>

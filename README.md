@@ -24,8 +24,7 @@ Or clone it and build the bundle yourself (see [Development](#development)).
 import { ResourceCalendar } from "resourcecalendar";
 import "resourcecalendar/style.css";
 
-const calendar = new ResourceCalendar({
-  containerId: "calendar",
+const calendar = new ResourceCalendar("#calendar", {
   fetchResourcesFunction: () => ({
     1: "Room A",
     2: "Room B",
@@ -44,6 +43,8 @@ const calendar = new ResourceCalendar({
 calendar.render();
 ```
 
+The first argument is the element to render into, or a selector for it. The constructor throws if it doesn't exist. It doesn't touch the page or call your callbacks; `render()` does.
+
 ### Without a bundler
 
 The UMD build has the date polyfill inlined, so a `<script>` tag needs nothing
@@ -56,9 +57,7 @@ else:
 />
 <script src="node_modules/resourcecalendar/dist/resourcecalendar.umd.cjs"></script>
 <script>
-  const calendar = new ResourceCalendar.ResourceCalendar({
-    containerId: "calendar",
-  });
+  const calendar = new ResourceCalendar.ResourceCalendar("#calendar");
   calendar.render();
 </script>
 ```
@@ -86,8 +85,7 @@ See `ResourceCalendar.DEFAULT_OPTIONS` in `src/ResourceCalendar.ts` for the full
 Set `theming` to use your CSS framework's palette:
 
 ```js
-new ResourceCalendar({
-  containerId: "calendar",
+new ResourceCalendar("#calendar", {
   theming: "bootstrap5", // "none" (default) | "bootstrap5" | "tailwind4"
 });
 ```

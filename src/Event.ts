@@ -243,7 +243,7 @@ export class Event {
         return;
       }
 
-      this.calendar.eventClick?.(this);
+      this.calendar.options.eventClick?.(this);
     });
 
     element.addEventListener("dragstart", (e) => {
@@ -276,7 +276,7 @@ export class Event {
         );
         this.moveBySubdivisions(movedSubdivisions, newTr);
         event.save();
-        this.calendar.eventDrop?.(this);
+        this.calendar.options.eventDrop?.(this);
       }
 
       delete element._dropTarget;
@@ -774,7 +774,7 @@ export class Event {
    * Hands the event to the host's `saveEventFunction`, if one was provided.
    */
   save(): void {
-    this.calendar.saveEventFunction?.(this);
+    this.calendar.options.saveEventFunction?.(this);
   }
 
   /**
@@ -782,7 +782,7 @@ export class Event {
    * then drops it from the calendar.
    */
   delete(): void {
-    this.calendar.deleteEventFunction?.(this);
+    this.calendar.options.deleteEventFunction?.(this);
     this.remove();
   }
 }

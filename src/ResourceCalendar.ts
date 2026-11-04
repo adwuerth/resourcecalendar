@@ -45,8 +45,6 @@ export interface ButtonDefinition {
  * shallow-merged over {@link ResourceCalendar.DEFAULT_OPTIONS}.
  */
 export interface ResourceCalendarOptions {
-  /** id of the host element to render into */
-  containerId: string;
   /** CSS color for events without one */
   defaultEventColor: string;
   /** date the calendar opens on */
@@ -103,15 +101,35 @@ function tdOf(e: globalThis.Event): HTMLTableCellElement | null {
 }
 
 /**
- * The calendar orchestrator. Owns the lifecycle:
- * `updateCalendarData()` -> `render()` -> `renderEvents()`.
+ * Merges user options over the defaults, including the ones that can only be
+ * computed at construction time.
+ */
+function resolveOptions(
+  options: Partial<ResourceCalendarOptions>,
+): ResourceCalendarOptions {
+  const resolved = {
+    ...ResourceCalendar.DEFAULT_OPTIONS,
+    initialDate: Temporal.Now.plainDateTimeISO(),
+    locale: navigator.language,
+    ...options,
+  };
+  if (resolved.theming !== "none" && options.defaultEventColor === undefined) {
+    resolved.defaultEventColor = "";
+  }
+  return resolved;
+}
+
+/**
+ * The calendar orchestrator. The constructor only validates and resolves
+ * options; the first `render()` loads data and mounts the calendar.
  */
 export class ResourceCalendar {
-  static DEFAULT_OPTIONS: ResourceCalendarOptions = {
+  static DEFAULT_OPTIONS: Omit<
+    ResourceCalendarOptions,
+    "initialDate" | "locale"
+  > = {
     // calendar settings
-    containerId: "container-resourcecalendar",
     defaultEventColor: "#5e5e5e",
-    initialDate: Temporal.Now.plainDateTimeISO(),
     nowIndicator: true,
     selectable: true,
     editable: true,
@@ -129,7 +147,6 @@ export class ResourceCalendar {
 
     // viewmode settings
     defaultViewMode: "week",
-    locale: navigator.language,
     weekends: true,
     minTime: "00:00",
     maxTime: "24:00",
@@ -190,7 +207,7 @@ export class ResourceCalendar {
   /** resource id -> label */
   resources: Map<string, string>;
   /** resource id -> table row */
-  rows: Map<string, HTMLTableRowElement>;
+  rows = new Map<string, HTMLTableRowElement>();
   /** raw event data as last returned by the host */
   eventData: EventJSON[];
   /** the live events, the source of truth while the calendar runs */
@@ -224,42 +241,32 @@ export class ResourceCalendar {
   _drag: { event: Event; startX: number } | null = null;
   /** cells currently carrying the drop highlight */
   _highlighted: HTMLTableCellElement[] = [];
-  fetchResourcesFunction: ResourceCalendarOptions["fetchResourcesFunction"];
-  fetchEventDataFunction: ResourceCalendarOptions["fetchEventDataFunction"];
-  saveEventFunction: ResourceCalendarOptions["saveEventFunction"];
-  deleteEventFunction: ResourceCalendarOptions["deleteEventFunction"];
-  dateClick: ResourceCalendarOptions["dateClick"];
-  eventClick: ResourceCalendarOptions["eventClick"];
-  eventDrop: ResourceCalendarOptions["eventDrop"];
 
   /**
-   * Creates an instance of ResourceCalendar.
+   * @param container - the element to render into, or a selector for it
    * @param options - overrides merged over
    *   {@link ResourceCalendar.DEFAULT_OPTIONS}
+   * @throws if the container does not exist or `defaultViewMode` is unknown
    */
-  constructor(options: Partial<ResourceCalendarOptions> = {}) {
-    this.options = { ...ResourceCalendar.DEFAULT_OPTIONS, ...options };
-
-    if (
-      this.options.theming !== "none" &&
-      options.defaultEventColor === undefined
-    ) {
-      this.options.defaultEventColor = "";
+  constructor(
+    container: HTMLElement | string,
+    options: Partial<ResourceCalendarOptions> = {},
+  ) {
+    const element =
+      typeof container === "string"
+        ? document.querySelector<HTMLElement>(container)
+        : container;
+    if (!element) {
+      throw new Error(`ResourceCalendar: container "${container}" not found.`);
     }
+    this.container = element;
+    this.options = resolveOptions(options);
 
-    const container = document.getElementById(this.options.containerId);
-
-    if (!container) {
-      console.error(
-        `ResourceCalendar Error: Container element with ID "${this.options.containerId}" not found.`,
+    if (!(this.options.defaultViewMode in ViewFactory.MODES)) {
+      throw new Error(
+        `ResourceCalendar: unknown view mode "${this.options.defaultViewMode}".`,
       );
-      return;
     }
-
-    this.container = container;
-
-    this.container.innerHTML = "";
-    this.container._calendar = this;
 
     this.setViewMode(this.options.defaultViewMode);
     this.selectedDate =
@@ -267,22 +274,7 @@ export class ResourceCalendar {
         ? this.options.initialDate
         : Temporal.PlainDateTime.from(this.options.initialDate);
     this.tabId = this.options.tabId;
-
-    this.fetchResourcesFunction = this.options.fetchResourcesFunction;
-    this.fetchEventDataFunction = this.options.fetchEventDataFunction;
-    this.saveEventFunction = this.options.saveEventFunction;
-    this.deleteEventFunction = this.options.deleteEventFunction;
-    this.dateClick = this.options.dateClick;
-    this.eventClick = this.options.eventClick;
-    this.eventDrop = this.options.eventDrop;
     this.buttons = { ...this.standardButtons, ...this.options.customButtons };
-
-    this.rows = new Map();
-
-    this.updateCalendarData();
-
-    this._resizeObserver = new ResizeObserver(() => this.reflow());
-    this._resizeObserver.observe(this.container);
   }
 
   /**
@@ -292,10 +284,9 @@ export class ResourceCalendar {
    */
   destroy(): void {
     this._resizeObserver?.disconnect();
-    if (this.container) {
-      this.container.innerHTML = "";
-      delete this.container._calendar;
-    }
+    this._resizeObserver = undefined;
+    this.container.innerHTML = "";
+    delete this.container._calendar;
     this.isRendered = false;
   }
 
@@ -373,14 +364,14 @@ export class ResourceCalendar {
    * @returns resource id -> label
    */
   fetchResources(): Record<string, string> {
-    return this.fetchResourcesFunction(this);
+    return this.options.fetchResourcesFunction(this);
   }
 
   /**
    * Fetches event data via the host's `fetchEventDataFunction`.
    */
   fetchEventData(): EventJSON[] {
-    return this.fetchEventDataFunction(this);
+    return this.options.fetchEventDataFunction(this);
   }
 
   /**
@@ -489,14 +480,17 @@ export class ResourceCalendar {
 
   /**
    * Clears the container and renders the toolbar + table, then places events
-   * and wires up cell/dropzone interaction.
+   * and wires up cell/dropzone interaction. The first call also loads the
+   * data and starts watching the container's size.
    */
   render(): void {
-    if (!this.container) {
-      console.error(
-        "ResourceCalendar Error: Cannot render. Instance is not valid or container not found.",
-      );
-      return;
+    if (!this.dates) {
+      this.updateCalendarData();
+    }
+    if (!this._resizeObserver) {
+      this.container._calendar = this;
+      this._resizeObserver = new ResizeObserver(() => this.reflow());
+      this._resizeObserver.observe(this.container);
     }
 
     this.calendarEl = document.createElement("div");
@@ -522,7 +516,7 @@ export class ResourceCalendar {
     this.calendarEl.addEventListener("click", (e) => {
       const td = tdOf(e);
       if (td && this.options.selectable && this.options.editable) {
-        this.dateClick?.(Event.fromClick(this, td, e));
+        this.options.dateClick?.(Event.fromClick(this, td, e));
       }
     });
 
