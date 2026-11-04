@@ -402,7 +402,7 @@ export class ResourceCalendar {
    */
   renderEvents(): void {
     const firstTd = this.container.querySelector("td");
-    this.tdWidth = firstTd ? firstTd.offsetWidth : 0;
+    this.tdWidth = firstTd ? firstTd.getBoundingClientRect().width : 0;
 
     // check if calendar is rendered
     if (!this.tdWidth) {
@@ -428,7 +428,7 @@ export class ResourceCalendar {
     }
 
     const firstTd = this.container.querySelector("td");
-    const tdWidth = firstTd ? firstTd.offsetWidth : 0;
+    const tdWidth = firstTd ? firstTd.getBoundingClientRect().width : 0;
 
     if (!tdWidth || tdWidth === this.tdWidth) {
       return;
