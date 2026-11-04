@@ -7,5 +7,6 @@ export type {
   ResourceCalendarOptions,
   ButtonDefinition,
   StripingMode,
+  ThemeMode,
 } from "./ResourceCalendar";
 export type { EventJSON } from "./Event";

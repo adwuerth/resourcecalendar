@@ -741,6 +741,12 @@ export class Event {
     if (!this.element) {
       return;
     }
+    if (!this.color) {
+      this.element.style.removeProperty("background-color");
+      this.element.style.removeProperty("border-color");
+      this.element.style.removeProperty("color");
+      return;
+    }
     this.element.style.backgroundColor = this.color;
     this.element.style.borderColor = Utils.shadeColor(this.color, 1.1);
     this.element.style.color = Utils.getContrastYIQ(this.color);

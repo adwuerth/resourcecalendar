@@ -46,8 +46,8 @@ calendar.render();
 
 ### Without a bundler
 
-The UMD build is self-contained — it has the date polyfill inlined, so a
-`<script>` tag needs nothing else:
+The UMD build has the date polyfill inlined, so a `<script>` tag needs nothing
+else:
 
 ```html
 <link
@@ -74,6 +74,63 @@ The data callbacks are yours to implement:
 - `dateClick` / `eventClick` / `eventDrop` are interaction hooks.
 
 See `ResourceCalendar.DEFAULT_OPTIONS` in `src/ResourceCalendar.ts` for the full option list and defaults.
+
+## Theming
+
+Set `theming` to use your CSS framework's palette:
+
+```js
+new ResourceCalendar({
+  containerId: "calendar",
+  theming: "bootstrap5", // "none" (default) | "bootstrap5" | "tailwind4"
+});
+```
+
+The calendar then reads the framework's CSS variables, so it also follows the framework's dark mode. If the framework isn't loaded, the calendar keeps its default look. Tailwind v3 has no runtime theme variables, so use custom variables (below) instead.
+
+A theme clears `defaultEventColor` so the theme's event colours apply. Pass `defaultEventColor` explicitly to override that. A `backgroundColor` on an individual event always takes precedence.
+
+### Custom themes
+
+Every colour and radius is a `--rc-*` custom property. Redeclare them on `.rc-calendar`:
+
+```css
+.rc-calendar {
+  --rc-event-bg: #dbeafe;
+  --rc-today-bg: #fca5a5;
+}
+```
+
+The defaults are in `@layer calendar.base`, so your unlayered rules win without extra specificity. This works together with `theming`. To have the variables colour events without a theme, set `defaultEventColor: ""`.
+
+<details>
+<summary>The full set of variables</summary>
+
+| Variable                        | Default                    | What it colours                              |
+| ------------------------------- | -------------------------- | -------------------------------------------- |
+| `--rc-border-color`             | `rgba(0, 0, 0, 0.3)`       | grid lines                                   |
+| `--rc-stripe-bg`                | `rgba(0, 0, 0, 0.05)`      | row / column striping                        |
+| `--rc-event-bg`                 | `#d1e7dd`                  | event background                             |
+| `--rc-event-border-color`       | `#a3cfbb`                  | event border                                 |
+| `--rc-event-color`              | `#664d03`                  | event text                                   |
+| `--rc-drop-bg`                  | `#eaf6f0`                  | cells an event would land on, while dragging |
+| `--rc-today-bg`                 | `#ffc107`                  | today's column header                        |
+| `--rc-today-subtle-bg`          | `#fff3cd`                  | today's column body                          |
+| `--rc-btn-color`                | `#fff`                     | toolbar button text                          |
+| `--rc-btn-bg`                   | `#212529`                  | toolbar button background                    |
+| `--rc-btn-border-color`         | `#212529`                  | toolbar button border                        |
+| `--rc-btn-hover-bg`             | `#424649`                  | toolbar button, hovered                      |
+| `--rc-btn-hover-border-color`   | `#373b3e`                  | toolbar button border, hovered               |
+| `--rc-btn-active-bg`            | `#4d5154`                  | toolbar button, pressed or active            |
+| `--rc-btn-active-border-color`  | `#373b3e`                  | toolbar button border, pressed or active     |
+| `--rc-input-color`              | `#212529`                  | date picker text                             |
+| `--rc-input-bg`                 | `#fff`                     | date picker background                       |
+| `--rc-input-border-color`       | `#ced4da`                  | date picker border                           |
+| `--rc-input-focus-border-color` | `#86b7fe`                  | date picker border, focused                  |
+| `--rc-focus-ring`               | `rgba(13, 110, 253, 0.25)` | date picker focus ring                       |
+| `--rc-border-radius`            | `0.375rem`                 | buttons and the date picker                  |
+
+</details>
 
 ## Development
 

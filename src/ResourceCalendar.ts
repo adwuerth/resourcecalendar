@@ -21,6 +21,11 @@ import type { ViewMode } from "./ViewMode";
 export type StripingMode = "none" | "columns" | "rows";
 
 /**
+ * CSS framework whose theme variables the calendar maps onto.
+ */
+export type ThemeMode = "none" | "bootstrap5" | "tailwind4";
+
+/**
  * A toolbar button definition. Either provides a `creationFunction` that
  * builds the whole element, or an `onClick` handler plus an icon/label.
  */
@@ -52,6 +57,8 @@ export interface ResourceCalendarOptions {
   editable: boolean;
   /** row/column striping mode */
   striping: StripingMode;
+  /** CSS framework whose palette the calendar should adopt */
+  theming: ThemeMode;
   eventDrop: ((event: Event) => void) | null;
   /** called when an event is clicked */
   eventClick: ((event: Event) => void) | null;
@@ -104,6 +111,7 @@ export class ResourceCalendar {
     selectable: true, // todo
     editable: true, // todo
     striping: "none",
+    theming: "none",
 
     eventDrop: null,
     eventClick: null,
@@ -225,6 +233,13 @@ export class ResourceCalendar {
    */
   constructor(options: Partial<ResourceCalendarOptions> = {}) {
     this.options = { ...ResourceCalendar.DEFAULT_OPTIONS, ...options };
+
+    if (
+      this.options.theming !== "none" &&
+      options.defaultEventColor === undefined
+    ) {
+      this.options.defaultEventColor = "";
+    }
 
     const container = document.getElementById(this.options.containerId);
 
@@ -476,6 +491,9 @@ export class ResourceCalendar {
 
     this.calendarEl = document.createElement("div");
     this.calendarEl.classList.add("rc-calendar");
+    if (this.options.theming !== "none") {
+      this.calendarEl.classList.add(`rc-theme-${this.options.theming}`);
+    }
 
     const toolbar = this.createToolbar();
     this.calendarEl.append(toolbar);
