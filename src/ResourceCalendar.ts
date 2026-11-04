@@ -55,7 +55,7 @@ export interface ResourceCalendarOptions {
   nowIndicator: boolean;
   /** whether clicking an empty cell calls `dateClick` (by default creating an event) */
   selectable: boolean;
-  /** whether events can be dragged and resized */
+  /** whether events can be created, dragged and resized */
   editable: boolean;
   /** row/column striping mode */
   striping: StripingMode;
@@ -521,7 +521,7 @@ export class ResourceCalendar {
 
     this.calendarEl.addEventListener("click", (e) => {
       const td = tdOf(e);
-      if (td && this.options.selectable) {
+      if (td && this.options.selectable && this.options.editable) {
         this.dateClick?.(Event.fromClick(this, td, e));
       }
     });

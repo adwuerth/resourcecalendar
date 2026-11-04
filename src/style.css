@@ -157,7 +157,6 @@
     border-radius: 5px;
     color: var(--rc-event-color);
     padding: 0px;
-    cursor: grab;
     text-align: center;
     line-height: 40px;
     user-select: none;
@@ -169,7 +168,11 @@
     box-sizing: border-box;
   }
 
-  :where(.rc-calendar) .rc-event:active:not(.resizing) {
+  :where(.rc-calendar:not(.rc-readonly)) .rc-event {
+    cursor: grab;
+  }
+
+  :where(.rc-calendar:not(.rc-readonly)) .rc-event:active:not(.resizing) {
     cursor: grabbing;
   }
 
@@ -205,10 +208,6 @@
     display: flex;
     align-items: center;
     justify-content: center;
-  }
-
-  :where(.rc-calendar.rc-readonly) .rc-event {
-    cursor: default;
   }
 
   :where(.rc-calendar.rc-readonly) .resize-handle {

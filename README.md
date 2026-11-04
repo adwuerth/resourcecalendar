@@ -75,7 +75,7 @@ The data callbacks are yours to implement:
 
 Behaviour options:
 
-- `editable: false` makes events read-only: no dragging, no resize handles. `eventClick` still fires.
+- `editable: false` makes the calendar read-only: no creating, dragging or resizing events. `eventClick` still fires.
 - `selectable: false` stops clicks on empty cells from calling `dateClick`, so users can't create events.
 - `minTime` / `maxTime` (`"HH:MM"`, default `"00:00"` / `"24:00"`) limit the hours shown in day view. They have no effect in week or month view.
 
