@@ -95,7 +95,7 @@ export class WeekView extends ViewMode {
 
   header(date: Temporal.PlainDateTime): string {
     const startDate = this.getStartDate(date);
-    const endDate = this.getEndDate(date);
+    const endDate = this.getEndDate(date).subtract({ days: 1 });
 
     const startFormatted = startDate.toLocaleString(this.locale, {
       day: "2-digit",

@@ -129,6 +129,7 @@
   :where(.rc-calendar) table thead th {
     position: sticky;
     top: 0;
+    overflow: hidden;
   }
 
   :where(.rc-calendar) .rc-corner,

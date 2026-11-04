@@ -37,8 +37,8 @@ export class DayView extends ViewMode {
 
   formatDate(date: Temporal.PlainDateTime): string {
     return date.toLocaleString(this.locale, {
-      hour: "2-digit",
-      minute: "2-digit",
+      hour: "numeric",
+      minute: this.minMinutes % 60 ? "2-digit" : undefined,
     });
   }
 
