@@ -562,7 +562,6 @@ export class ResourceCalendar {
    */
   createTable(): HTMLElement {
     const table = document.createElement("table");
-    table.style.tableLayout = "fixed";
     table.append(this.createHeader());
     table.append(this.createBody());
 
@@ -742,9 +741,6 @@ export class ResourceCalendar {
    */
   private createHeader(): HTMLElement {
     const thead = document.createElement("thead");
-    thead.style.position = "sticky";
-    thead.style.top = "0px";
-    thead.style.zIndex = "1000";
 
     const headerRow = document.createElement("tr");
 
@@ -752,9 +748,7 @@ export class ResourceCalendar {
     const cornerTh = document.createElement("th");
     cornerTh.setAttribute("scope", "col");
     cornerTh.setAttribute("colspan", String(this.subdivision));
-    cornerTh.style.width = "15vw";
-    cornerTh.style.position = "sticky";
-    cornerTh.style.top = "0px";
+    cornerTh.classList.add("rc-corner");
     headerRow.append(cornerTh);
 
     const today = Temporal.Now.plainDateTimeISO();
@@ -767,8 +761,6 @@ export class ResourceCalendar {
       const dateTh = document.createElement("th");
       dateTh.setAttribute("scope", "col");
       dateTh.setAttribute("colspan", String(this.subdivision));
-      dateTh.style.position = "sticky";
-      dateTh.style.top = "0px";
       dateTh.textContent = formattedDate;
 
       if (this.options.striping === "columns" && index % 2 === 0) {
@@ -806,7 +798,6 @@ export class ResourceCalendar {
       resourceTh.classList.add("rc-resource-header");
       resourceTh.setAttribute("scope", "row");
       resourceTh.setAttribute("colspan", String(this.subdivision));
-      resourceTh.style.width = "15vw";
       resourceTh.textContent = `${resource} (${resourceId})`;
       resourceRow.append(resourceTh);
 
@@ -822,8 +813,9 @@ export class ResourceCalendar {
             resourceTd.classList.add("rc-col-stripe");
           }
 
-          const borderStyle = j + 1 < this.subdivision ? "dashed" : "solid";
-          resourceTd.style.borderRight = `1px rgba(0, 0, 0, 0.3) ${borderStyle}`;
+          if (j + 1 < this.subdivision) {
+            resourceTd.classList.add("rc-subdivision");
+          }
 
           const dropzoneDiv = document.createElement("div");
           dropzoneDiv.classList.add("dropzone");

@@ -4,6 +4,9 @@
  */
 import { Temporal } from "temporal-polyfill";
 
+let colorContext: CanvasRenderingContext2D | null | undefined;
+const colorCache = new Map<string, [number, number, number, number] | null>();
+
 export const Utils = {
   /**
    * Calculates the absolute time difference between two dates in milliseconds.
@@ -37,47 +40,58 @@ export const Utils = {
   },
 
   /**
-   * Parses a hex color string into an rgb number triplet. Accepts `#rgb` /
-   * `#rrggbb` (with or without leading `#`); returns black for anything it
-   * cannot parse.
+   * Resolves any CSS color the browser's canvas understands (hex, names,
+   * `rgb()`, `hsl()`, `oklch()`, ...) to sRGB bytes plus alpha in `[0, 1]`.
+   * Returns `null` for anything unparseable, including `var()` references,
+   * which only a styled element can resolve.
    */
-  getRGB(color: string): [number, number, number] {
-    let hex = color.startsWith("#") ? color.substring(1) : color;
-    if (hex.length === 3) {
-      hex = hex
-        .split("")
-        .map((c) => c + c)
-        .join("");
+  parseColor(color: string): [number, number, number, number] | null {
+    const cached = colorCache.get(color);
+    if (cached !== undefined) {
+      return cached;
     }
-    const r = parseInt(hex.substring(0, 2), 16);
-    const g = parseInt(hex.substring(2, 4), 16);
-    const b = parseInt(hex.substring(4, 6), 16);
-    if ([r, g, b].some(Number.isNaN)) {
-      return [0, 0, 0];
+
+    if (colorContext === undefined) {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 1;
+      colorContext = canvas.getContext("2d", { willReadFrequently: true });
     }
-    return [r, g, b];
+
+    let result: [number, number, number, number] | null = null;
+    const ctx = colorContext;
+    if (ctx) {
+      ctx.fillStyle = "#000";
+      ctx.fillStyle = color;
+      const onBlack = ctx.fillStyle;
+      ctx.fillStyle = "#fff";
+      ctx.fillStyle = color;
+      if (onBlack === ctx.fillStyle) {
+        ctx.clearRect(0, 0, 1, 1);
+        ctx.fillRect(0, 0, 1, 1);
+        const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+        result = [r, g, b, a / 255];
+      }
+    }
+
+    colorCache.set(color, result);
+    return result;
   },
 
   /**
-   * Picks a readable (black or white) font color for a background color.
+   * Picks a readable (black or white) text color for a background color, or
+   * `null` when the color cannot be parsed. Translucent colors are judged as
+   * laid over white.
    */
-  getContrastYIQ(color: string): "black" | "white" {
-    const [r, g, b] = this.getRGB(color);
+  getContrastColor(color: string): "black" | "white" | null {
+    const parsed = this.parseColor(color);
+    if (!parsed) {
+      return null;
+    }
+    const [r, g, b] = parsed
+      .slice(0, 3)
+      .map((channel) => channel * parsed[3] + 255 * (1 - parsed[3]));
     const yiq = (r * 299 + g * 587 + b * 114) / 1000;
     return yiq >= 128 ? "black" : "white";
-  },
-
-  /**
-   * Darkens/lightens a color by the specified amount -> <1.0 lighten; >1.0 darken
-   */
-  shadeColor(color: string, decimal: number): string {
-    return `#${this.getRGB(color)
-      .map((n) =>
-        Math.min(Math.round(n / decimal), 255)
-          .toString(16)
-          .padStart(2, "0"),
-      )
-      .join("")}`;
   },
 
   /**

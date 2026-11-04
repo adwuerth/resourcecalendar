@@ -745,15 +745,29 @@ export class Event {
     if (!this.element) {
       return;
     }
+    const style = this.element.style;
+    style.removeProperty("background-color");
+    style.removeProperty("border-color");
+    style.removeProperty("color");
     if (!this.color) {
-      this.element.style.removeProperty("background-color");
-      this.element.style.removeProperty("border-color");
-      this.element.style.removeProperty("color");
       return;
     }
-    this.element.style.backgroundColor = this.color;
-    this.element.style.borderColor = Utils.shadeColor(this.color, 1.1);
-    this.element.style.color = Utils.getContrastYIQ(this.color);
+
+    style.backgroundColor = this.color;
+    if (!style.backgroundColor) {
+      console.warn(`ResourceCalendar: invalid event color "${this.color}".`);
+      return;
+    }
+    style.borderColor = `color-mix(in srgb, ${this.color} 91%, black)`;
+
+    const resolved =
+      this.color.includes("var(") && this.element.isConnected
+        ? getComputedStyle(this.element).backgroundColor
+        : this.color;
+    const text = Utils.getContrastColor(resolved);
+    if (text) {
+      style.color = text;
+    }
   }
 
   /**

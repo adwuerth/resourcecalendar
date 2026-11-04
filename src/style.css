@@ -116,9 +116,24 @@
     border-right: 1px var(--rc-border-color) solid;
   }
 
+  :where(.rc-calendar) table td.rc-subdivision {
+    border-right-style: dashed;
+  }
+
+  :where(.rc-calendar) thead {
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+  }
+
   :where(.rc-calendar) table thead th {
     position: sticky;
     top: 0;
+  }
+
+  :where(.rc-calendar) .rc-corner,
+  :where(.rc-calendar) .rc-resource-header {
+    width: 15vw;
   }
 
   :where(.rc-calendar) td {
