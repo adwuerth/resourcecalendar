@@ -248,7 +248,6 @@ export class Event {
 
     element.addEventListener("dragstart", (e) => {
       this.calendar._drag = { event: this, startX: e.clientX };
-      element._dropTarget = null;
       e.dataTransfer?.setData("text/plain", element.id);
 
       setTimeout(() => {
@@ -258,28 +257,12 @@ export class Event {
       }, 0);
     });
 
-    element.addEventListener("dragend", (e) => {
+    element.addEventListener("dragend", () => {
       element.style.opacity = "1";
       element.style.cursor = "grab";
       this.calendar.calendarEl.classList.remove("rc-dragging");
       this.calendar.clearDropHighlight();
-
-      const dropTarget = element._dropTarget;
-      const dragStartX = this.calendar._drag?.startX ?? e.clientX;
       this.calendar._drag = null;
-
-      if (dropTarget) {
-        const draggedDistanceX = e.clientX - dragStartX;
-        const newTr = dropTarget.closest("tr");
-        const movedSubdivisions = Math.round(
-          draggedDistanceX / this.calendar.tdWidth,
-        );
-        this.moveBySubdivisions(movedSubdivisions, newTr);
-        event.save();
-        this.calendar.options.eventDrop?.(this);
-      }
-
-      delete element._dropTarget;
     });
 
     // Store references so they can be removed if needed

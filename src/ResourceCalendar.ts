@@ -537,15 +537,15 @@ export class ResourceCalendar {
       this.clearDropHighlight();
 
       const td = tdOf(e);
-      if (!td) {
+      if (!td || !this._drag) {
         return;
       }
 
-      const id = e.dataTransfer?.getData("text/plain");
-      const eventEl = id ? document.getElementById(id) : null;
-      if (eventEl) {
-        eventEl._dropTarget = td;
-      }
+      const { event, startX } = this._drag;
+      const movedSubdivisions = Math.round((e.clientX - startX) / this.tdWidth);
+      event.moveBySubdivisions(movedSubdivisions, td.closest("tr"));
+      event.save();
+      this.options.eventDrop?.(event);
     });
 
     this.isRendered = true;

@@ -14,8 +14,6 @@ declare global {
     _calendar?: ResourceCalendar;
     /** Persistent event id mirrored onto the event element. */
     _eventId?: string | number | null;
-    /** Drop target captured during a drag, consumed on dragend. */
-    _dropTarget?: HTMLElement | null;
   }
 
   interface HTMLTableRowElement {
